@@ -1,0 +1,1 @@
+En el repo hay un Makefile. Para compilar y ejecutar el código, basta con escribir 'make'.
