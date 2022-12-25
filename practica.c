@@ -328,13 +328,13 @@ void accionesCliente(struct Cliente *cliente)
 			// Libero su espacio de la cola
 			int posicion = dondeEsta(cliente);
 
-			pthread_mutex_lock(&listaClientes);
+			pthread_mutex_lock(&colaClientes);
 			listaClientes[posicion].id = 0;
 			listaClientes[posicion].atendido = 0;
 			listaClientes[posicion].solicitud = 0;
 			listaClientes[posicion].prioridad = 0;
 			listaClientes[posicion].tipo = 0;
-			pthread_mutex_unlock(&listaClientes);
+			pthread_mutex_unlock(&colaClientes);
 
 			// Se va
 			pthread_exit(0);
@@ -349,7 +349,7 @@ void accionesCliente(struct Cliente *cliente)
 			// ¿Se cansó de esperar?
 			if (tiempoEsperando % 8 == 0 && calculaAleatorios(0, 100) <= 20)
 			{
-				sprintf(msg, "Se cansó de esperar tras %d segundos", &tiempoEsperando);
+				sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
 
 				pthread_mutex_lock(&Fichero);
 				writeLogMessage(id, msg);
@@ -368,6 +368,7 @@ void accionesCliente(struct Cliente *cliente)
 
 			// Si no estoy atendido, espero 2 segundos
 			sleep(2);
+			tiempoEsperando += 2;
 		}
 	} while (!atendido);
 
