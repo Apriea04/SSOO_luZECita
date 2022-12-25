@@ -6,11 +6,11 @@
 #include <sys/wait.h>
 #include <signal.h>
 
-#define numClientes 20
-#define numTecnicos 2
-#define numRespReparaciones 2
-#define numEncargados 1
-#define numTecAttDomiciliaria 1
+#define NCLIENTES 20
+#define NTECNICOS 2
+#define NRESPREPARACIONES 2
+#define NENCARGADOS 1
+#define NTECDOMICILIARIA 1
 
 /**DECLARACIONES GLOBALES*/
 
@@ -33,10 +33,10 @@ struct Clientes
 };
 
 // Listas de hilos trabajadores
-pthread_t tecnicos[numTecnicos];
-pthread_t respReparaciones[numRespReparaciones];
-pthread_t encargados[numEncargados];
-pthread_t tecAttDomiciliaria[numTecAttDomiciliaria];
+pthread_t tecnicos[NTECNICOS];
+pthread_t respReparaciones[NRESPREPARACIONES];
+pthread_t encargados[NENCARGADOS];
+pthread_t tecAttDomiciliaria[NTECDOMICILIARIA];
 
 FILE *logFile;
 
@@ -146,8 +146,8 @@ int main()
 	contadorRed = 0;
 	numSolicitudesDomicilio = 0;
 
-	struct Clientes listaClientes[numClientes];
-	for (i = 0; i < numClientes; i++)
+	struct Clientes listaClientes[NCLIENTES];
+	for (i = 0; i < NCLIENTES; i++)
 	{
 		listaClientes[i].id = 0;
 		listaClientes[i].prioridad = 0;
@@ -156,7 +156,7 @@ int main()
 	}
 
 	// Inicialización de técnicos
-	for (i = 0; i < numTecnicos; i++)
+	for (i = 0; i < NTECNICOS; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -168,7 +168,7 @@ int main()
 	}
 
 	// Inicialización de responsables de reparaciones
-	for (i = 0; i < numRespReparaciones; i++)
+	for (i = 0; i < NRESPREPARACIONES; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -180,7 +180,7 @@ int main()
 	}
 
 	// Inicialización de encargados
-	for (i = 0; i < numEncargados; i++)
+	for (i = 0; i < NENCARGADOS; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -192,7 +192,7 @@ int main()
 	}
 
 	// Inicialización de técnicos de atención domiciliaria
-	for (i = 0; i < numTecAttDomiciliaria; i++)
+	for (i = 0; i < NTECDOMICILIARIA; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -209,7 +209,7 @@ int main()
 	}
 
 	// IMPORTANTE: No sé si esto es necesario, conviene revisarlo posteriormente - Joins de todos los hilos
-	// for (i = 0; i < numTecnicos; i++)
+	// for (i = 0; i < NTECNICOS; i++)
 	// {
 	// 	if (pthread_join(tecnicos[i], NULL) != 0)
 	// 	{
@@ -218,7 +218,7 @@ int main()
 	// 	}
 	// }
 
-	// for (i = 0; i < numRespReparaciones; i++)
+	// for (i = 0; i < NRESPREPARACIONES; i++)
 	// {
 	// 	if (pthread_join(respReparaciones[i], NULL) != 0)
 	// 	{
@@ -227,7 +227,7 @@ int main()
 	// 	}
 	// }
 
-	// for (i = 0; i < numEncargados; i++)
+	// for (i = 0; i < NENCARGADOS; i++)
 	// {
 	// 	if (pthread_join(encargados[i], NULL) != 0)
 	// 	{
@@ -236,7 +236,7 @@ int main()
 	// 	}
 	// }
 
-	// for (i = 0; i < numTecAttDomiciliaria; i++)
+	// for (i = 0; i < NTECDOMICILIARIA; i++)
 	// {
 	// 	if (pthread_join(tecAttDomiciliaria[i], NULL) != 0)
 	// 	{
