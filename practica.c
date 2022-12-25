@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <string.h>
 
 #define NCLIENTES 20
 #define NTECNICOS 2
@@ -23,12 +24,12 @@ pthread_cond_t condSolicitudesDomicilio;
 // Contadores
 int contadorApp, contadorRed, numSolicitudesDomicilio;
 
-struct Clientes
+struct Cliente
 {
-	int id;
-	int atendido; // 0 SI ATENDIDO; 1 SI ESTÁ EN PROCESO; 2 SI ESTÁ ATENDIDO
-	int tipo;	  // 0 SI APP; 1 SI RED
-	int prioridad;
+	int id;		   // Número secuencial comenzando en 1 para su tipo de cliente
+	int atendido;  // 0 SI NO ATENDIDO; 1 SI ESTÁ EN PROCESO; 2 SI ESTÁ ATENDIDO
+	int tipo;	   // 0 SI APP; 1 SI RED
+	int prioridad; // Del 1 al 10 aleatoria. 10 es la prioridad más alta
 	int solicitud;
 };
 
@@ -37,6 +38,9 @@ pthread_t tecnicos[NTECNICOS];
 pthread_t respReparaciones[NRESPREPARACIONES];
 pthread_t encargados[NENCARGADOS];
 pthread_t tecAttDomiciliaria[NTECDOMICILIARIA];
+
+// Lista de clientes
+struct Cliente listaClientes[NCLIENTES];
 
 FILE *logFile;
 
@@ -54,6 +58,30 @@ void writeLogMessage(char *id, char *msg)
 	logFile = fopen("registroTiempos.log", "a");
 	fprintf(logFile, "[%s] %s: %s\n", stnow, id, msg);
 	fclose(logFile);
+}
+
+int calculaAleatorios(int min, int max)
+{
+	return rand() % (max - min + 1) + min;
+}
+
+/**
+ * Devuelve la posición de un cliente en la lista de clientes.
+ * La primera posición es la 0
+ * Precondición: el cliente debe estar en la lista
+ */
+int dondeEsta(struct Cliente *buscado)
+{
+	// Sin proteger porque solo leo ??????????????????????????????????????????
+	for (int i = 0; i < NCLIENTES; i++)
+	{
+		// Un cliente es identificado por su id y tipo.
+		if (listaClientes[i].id == buscado->id && listaClientes[i].tipo == buscado->tipo)
+		{
+			return i;
+		}
+	}
+	return -1;
 }
 
 /**MANEJADORAS DE SEÑAL*/
@@ -146,7 +174,6 @@ int main()
 	contadorRed = 0;
 	numSolicitudesDomicilio = 0;
 
-	struct Clientes listaClientes[NCLIENTES];
 	for (i = 0; i < NCLIENTES; i++)
 	{
 		listaClientes[i].id = 0;
@@ -259,8 +286,92 @@ void nuevoCliente()
 }
 
 // ÁLVARO
-void accionesCliente()
+
+/**
+ * Recibe un puntero a su estructura cliente de la cola de clientes
+ */
+void accionesCliente(struct Cliente *cliente)
 {
+	char *id, *msg;
+	int seVa = 0; // en principio, el cliente no se va.
+	if (cliente->tipo == 0)
+	{
+		// Cliente app
+		sprintf(id, "clieapp_%d", cliente->id);
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage(id, "Cliente de tipo APP acaba de entrar al sistema.");
+		pthread_mutex_unlock(&Fichero);
+	}
+	else
+	{
+		sprintf(id, "clired_%d", cliente->id);
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage(id, "Cliente de tipo RED acaba de entrar al sistema.");
+		pthread_mutex_unlock(&Fichero);
+	}
+
+	// Calculamos si se va porque la aplicación es difícil:
+	if (calculaAleatorios(0, 10) < 2)
+	{
+		// Encontró la aplicación dificil
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage(id, "Encontró la aplicación difícil y se fue.");
+		pthread_mutex_unlock(&Fichero);
+	}
+
+	int atendido = 0; // En principio piensa que no está siendo atendido
+	int tiempoEsperando = 0;
+	do // Mientras que no sea atendido, comprueba cada 2 segundos
+	{
+		if (seVa)
+		{
+			// Libero su espacio de la cola
+			int posicion = dondeEsta(cliente);
+
+			pthread_mutex_lock(&listaClientes);
+			listaClientes[posicion].id = 0;
+			listaClientes[posicion].atendido = 0;
+			listaClientes[posicion].solicitud = 0;
+			listaClientes[posicion].prioridad = 0;
+			listaClientes[posicion].tipo = 0;
+			pthread_mutex_unlock(&listaClientes);
+
+			// Se va
+			pthread_exit(0);
+		}
+		// ¿Estoy atendido?
+		pthread_mutex_lock(&colaClientes);
+		atendido = cliente->atendido;
+		pthread_mutex_unlock(&colaClientes);
+
+		if (!atendido)
+		{
+			// ¿Se cansó de esperar?
+			if (tiempoEsperando % 8 == 0 && calculaAleatorios(0, 100) <= 20)
+			{
+				sprintf(msg, "Se cansó de esperar tras %d segundos", &tiempoEsperando);
+
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, msg);
+				pthread_mutex_unlock(&Fichero);
+
+				seVa = 1;
+			}
+			else if (calculaAleatorios(0, 100) <= 5)
+			{
+				// Perdió la conexión a internet
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, "Perdió la conexión a Internet.");
+				pthread_mutex_unlock(&Fichero);
+				seVa = 1;
+			}
+
+			// Si no estoy atendido, espero 2 segundos
+			sleep(2);
+		}
+	} while (!atendido);
+
+	// Ahora ya esta siendo atendido
 }
 
 // DANIEL
