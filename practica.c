@@ -68,9 +68,9 @@ int calculaAleatorios(int min, int max)
 // Devuelve el número de clientes de red
 int NClientesRed()
 {
-	int nred = 0;
+	int nred = 0, i;
 
-	for (int i = 0; i < NCLIENTES; i++)
+	for (i = 0; i < NCLIENTES; i++)
 	{
 		if (listaClientes[i].tipo == 1)
 		{
@@ -88,8 +88,9 @@ int NClientesRed()
  */
 int dondeEsta(struct Cliente *buscado)
 {
+	int i;
 	// Sin proteger porque solo leo ??????????????????????????????????????????
-	for (int i = 0; i < NCLIENTES; i++)
+	for (i = 0; i < NCLIENTES; i++)
 	{
 		// Un cliente es identificado por su id y tipo.
 		if (listaClientes[i].id == buscado->id && listaClientes[i].tipo == buscado->tipo)
@@ -105,11 +106,13 @@ int dondeEsta(struct Cliente *buscado)
 void handlerClienteApp(int sig)
 {
 	printf("Hola SIGUSR1\n");
+	nuevoCliente(0);
 }
 
 void handlerClienteRed(int sig)
 {
 	printf("Hola SIGUSR2\n");
+	nuevoCliente(1);
 }
 
 void handlerTerminar(int sig)
@@ -147,6 +150,18 @@ void *AtencionDomiciliaria(void *arg)
 	printf("Atención domiciliaria %d\n", index);
 	free(arg);
 }
+
+void *ClienteApp(void *arg)
+{
+	printf("Cliente App\n");
+}
+
+void *ClienteRed(void *arg)
+{
+	printf("Cliente Red\n");
+}
+
+
 
 /**MAIN*/
 
@@ -297,8 +312,55 @@ int main()
 }
 
 // GUILLERMO
-void nuevoCliente()
+void nuevoCliente(int tipo)
 {
+	pthread_mutex_lock(&colaClientes);
+	//Busca posición libre dentro del array (id=0)
+	int i = 0;
+	while(i<NCLIENTES)
+	{
+    		if(listaClientes[i].id == 0)
+    		{
+		//Introducimos los atributos del nuevo cliente en esa posición libre
+        		if(tipo==0)
+        		{
+            			contadorApp++;
+           			listaClientes[i].id = contadorApp;
+        		} else
+        		{
+            			contadorRed++;
+            			listaClientes[i].id = contadorRed;
+        		}
+
+        		listaClientes[i].atendido = 0;
+        		listaClientes[i].tipo = tipo;
+        		listaClientes[i].solicitud = 0;
+        		listaClientes[i].prioridad = calculaAleatorios(1,10);
+
+			// Creamos un hilo cliente y lo inicializamos
+        		pthread_t cliente;
+			char *id;
+        		if(listaClientes[i].tipo==0)
+        		{
+            			pthread_create(&cliente, NULL, &ClienteApp, NULL);
+				sprintf(id, "cliapp_%d", listaClientes[i].id);
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, "Nuevo cliente de tipo APP ha entrado en la cola.");
+       				pthread_mutex_unlock(&Fichero);
+			} else
+       			{
+        			pthread_create(&cliente, NULL, &ClienteRed, NULL);
+				sprintf(id, "clired_%d", listaClientes[i].id);
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, "Nuevo cliente de tipo RED ha entrado en cola.");
+				pthread_mutex_unlock(&Fichero);
+    			}
+    			break; // El bucle termina cuando encuentra una posición libre
+		}
+		i++;
+	}
+	pthread_mutex_unlock(&colaClientes);
+
 }
 
 // ÁLVARO
@@ -399,7 +461,7 @@ void accionesTecnico()
 // MARIO
 void accionesEncargado()
 {
-	int customer = -1;
+	int customer = -1, i;
 	char *id, *msg;
 
 	do
@@ -407,7 +469,7 @@ void accionesEncargado()
 		pthread_mutex_lock(&colaClientes);
 
 		// Busca el cliente que atendera segun su tipo, prioridad y tiempo de espera.
-		for (int i = 0; i < NCLIENTES; i++)
+		for (i = 0; i < NCLIENTES; i++)
 		{
 			if (listaClientes[i].id != 0)
 			{
@@ -423,8 +485,6 @@ void accionesEncargado()
 						if (listaClientes[i].tipo == 1)
 						{
 							if (listaClientes[customer].tipo != 0)
-							{
-							}
 							{
 								customer = i;
 							}
@@ -516,7 +576,7 @@ void accionesEncargado()
 			pthread_mutex_unlock(&colaClientes);
 		}
 
-	} while (true);
+	} while (1);
 }
 
 void accionesTecnicoDomiciliario()
