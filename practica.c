@@ -400,10 +400,13 @@ void accionesTecnico()
 void accionesEncargado()
 {
 	int customer = -1;
+	char *id, *msg;
 
 	do
 	{
 		pthread_mutex_lock(&colaClientes);
+
+		// Busca el cliente que atendera segun su tipo, prioridad y tiempo de espera.
 		for (int i = 0; i < NCLIENTES; i++)
 		{
 			if (listaClientes[i].id != 0)
@@ -464,6 +467,52 @@ void accionesEncargado()
 		else
 		{
 			listaClientes[customer].atendido = 1;
+
+			// Calcular tipo de atencion
+
+			sprintf(msg, "Comienza la atención del cliente %d", customer);
+
+			// Comienza la atención
+			if (listaClientes[customer].tipo == 1)
+			{
+				// Cliente red
+				sprintf(id, "clired_%d", listaClientes[customer].id);
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, "Cliente de tipo RED va a ser atendido.");
+				pthread_mutex_unlock(&Fichero);
+			}
+			else
+			{
+				// Cliente app
+				sprintf(id, "clieapp_%d", listaClientes[customer].id);
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
+				pthread_mutex_unlock(&Fichero);
+			}
+
+			// Dormir atencion ??
+
+			// Termina la atención
+			if (listaClientes[customer].tipo == 1)
+			{
+				// Cliente red
+				sprintf(id, "clired_%d", listaClientes[customer].id);
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, "Ha finalizado la atención de cliente de tipo RED");
+			}
+			else
+			{
+				// Cliente app
+				sprintf(id, "clieapp_%d", listaClientes[customer].id);
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(id, "Ha finalizado la atención de cliente de tipo APP");
+			}
+
+			//Motivo de finalización
+			writeLogMessage(id, "Ha finalizado su atención por este motivo.");
+			pthread_mutex_unlock(&Fichero);
+
+			listaClientes[customer].atendido = 2;
 			pthread_mutex_unlock(&colaClientes);
 		}
 
