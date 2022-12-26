@@ -65,6 +65,22 @@ int calculaAleatorios(int min, int max)
 	return rand() % (max - min + 1) + min;
 }
 
+// Devuelve el número de clientes de red
+int NClientesRed()
+{
+	int nred = 0;
+
+	for (int i = 0; i < NCLIENTES; i++)
+	{
+		if (listaClientes[i].tipo == 1)
+		{
+			nred++;
+		}
+	}
+
+	return nred;
+}
+
 /**
  * Devuelve la posición de un cliente en la lista de clientes.
  * La primera posición es la 0
@@ -383,6 +399,75 @@ void accionesTecnico()
 // MARIO
 void accionesEncargado()
 {
+	int customer = -1;
+
+	do
+	{
+		pthread_mutex_lock(&colaClientes);
+		for (int i = 0; i < NCLIENTES; i++)
+		{
+			if (listaClientes[i].id != 0)
+			{
+				if (listaClientes[i].atendido == 0)
+				{
+					if (customer == -1)
+					{
+						customer = i;
+					}
+					else if (NCLIENTES > 1 && customer < NCLIENTES - 1)
+					{
+
+						if (listaClientes[i].tipo == 1)
+						{
+							if (listaClientes[customer].tipo != 0)
+							{
+							}
+							{
+								customer = i;
+							}
+							else if (listaClientes[i].prioridad > listaClientes[customer].prioridad)
+							{
+								customer = i;
+							}
+							else if (listaClientes[i].prioridad == listaClientes[customer].prioridad)
+							{
+								if (listaClientes[i].prioridad == listaClientes[customer].prioridad)
+								{
+									customer = i;
+								}
+							}
+						}
+						else
+						{
+							if (listaClientes[i].prioridad > listaClientes[customer].prioridad)
+							{
+								customer = i;
+							}
+							else if (listaClientes[i].prioridad == listaClientes[customer].prioridad)
+							{
+								if (listaClientes[i].prioridad == listaClientes[customer].prioridad)
+								{
+									customer = i;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (customer == -1)
+		{
+			pthread_mutex_unlock(&colaClientes);
+			sleep(3);
+		}
+		else
+		{
+			listaClientes[customer].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+		}
+
+	} while (true);
 }
 
 void accionesTecnicoDomiciliario()
