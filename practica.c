@@ -27,7 +27,7 @@ int contadorApp, contadorRed, numSolicitudesDomicilio;
 struct Cliente
 {
 	int id;		   // Número secuencial comenzando en 1 para su tipo de cliente
-	int atendido;  // 0 SI NO ATENDIDO; 1 SI ESTÁ EN PROCESO; 2 SI ESTÁ ATENDIDO
+	int atendido;  // 0 SI NO ATENDIDO; 1 SI ESTÁ EN PROCESO; 2 SI ESTÁ ATENDIDO; 3 SI SE CONFUNDE O MAL IDENTIFICADO
 	int tipo;	   // 0 SI APP; 1 SI RED
 	int prioridad; // Del 1 al 10 aleatoria. 10 es la prioridad más alta
 	int solicitud;
@@ -88,18 +88,40 @@ int NClientesRed()
  */
 int obtenerPosicion(struct Cliente *buscado)
 {
-	int i;
+	int i = 0, encontrado = 0;
 	pthread_mutex_lock(&colaClientes);
-	for (i = 0; i < NCLIENTES; i++)
+	while (encontrado == 0 && i < NCLIENTES)
 	{
 		// Un cliente es identificado por su id y tipo.
 		if (listaClientes[i].id == buscado->id && listaClientes[i].tipo == buscado->tipo)
 		{
-			break;
+			encontrado = 1;
 		}
+		i++;
 	}
 	pthread_mutex_unlock(&colaClientes);
-	return i;
+	if (encontrado)
+	{
+		return i;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+/**
+ * Libera el cliente del vector de clientes.
+ */
+void liberaCliente(struct Cliente *cliente)
+{
+	pthread_mutex_lock(&colaClientes);
+	cliente->id = 0;
+	cliente->atendido = 0;
+	cliente->prioridad = 0;
+	cliente->solicitud = 0;
+	cliente->tipo = 0;
+	pthread_mutex_unlock(&colaClientes);
 }
 
 /**MANEJADORAS DE SEÑAL*/
@@ -372,7 +394,12 @@ void accionesCliente(struct Cliente *cliente)
 {
 	char *id, *msg;
 	int seVa = 0; // en principio, el cliente no se va.
-	if (cliente->tipo == 0)
+
+	pthread_mutex_lock(&colaClientes); // TODO duda ¿Proteger?
+	int tipo = cliente->tipo;
+	pthread_mutex_unlock(&colaClientes);
+
+	if (tipo == 0)
 	{
 		// Cliente app
 		sprintf(id, "clieapp_%d", cliente->id);
@@ -404,15 +431,7 @@ void accionesCliente(struct Cliente *cliente)
 		if (seVa)
 		{
 			// Libero su espacio de la cola
-			int posicion = obtenerPosicion(cliente);
-
-			pthread_mutex_lock(&colaClientes);
-			listaClientes[posicion].id = 0;
-			listaClientes[posicion].atendido = 0;
-			listaClientes[posicion].solicitud = 0;
-			listaClientes[posicion].prioridad = 0;
-			listaClientes[posicion].tipo = 0;
-			pthread_mutex_unlock(&colaClientes);
+			liberaCliente(cliente);
 
 			// Se va
 			pthread_exit(0);
@@ -451,6 +470,34 @@ void accionesCliente(struct Cliente *cliente)
 	} while (!atendido);
 
 	// Ahora ya esta siendo atendido
+
+	while (atendido == 1)
+	{
+		// Estoy siendo atendido
+		sleep(2);
+
+		pthread_mutex_lock(&colaClientes);
+		atendido = cliente->atendido;
+		pthread_mutex_unlock(&colaClientes);
+	}
+
+	// Ya acabó de ser atendido. Si es de tipo app, se va
+	if (tipo == 1)
+	{
+		// Si es de tipo red
+		if (calculaAleatorios(0, 10) <= 3)
+		{
+			// Y quiere atención domiciliaria
+			// TODO
+		}
+	}
+
+	// El cliente se va
+	liberaPosicion(cliente);
+	pthread_mutex_lock(&logFile);
+	writeLogMessage(id, "Se va tras haber sido atendido");
+	pthread_mutex_unlock(&logFile);
+	pthread_exit(0);
 }
 
 // DANIEL
@@ -532,7 +579,7 @@ void accionesEncargado()
 			// Calcular tipo de atencion
 			tipoAtencion = calculaAleatorios(1, 10);
 
-			esAtendio = calculaAleatorios(0,1);
+			esAtendio = calculaAleatorios(0, 1);
 
 			if (tipoAtencion == 1)
 			{
@@ -567,7 +614,7 @@ void accionesEncargado()
 				listaClientes[customer].solicitud = 0;
 				listaClientes[customer].tipo = 0;
 
-				//No se le atiende
+				// No se le atiende
 				esAtendio = 0;
 			}
 			else
@@ -624,7 +671,8 @@ void accionesEncargado()
 				pthread_mutex_unlock(&colaClientes);
 			}
 		}
-		while (1);
+		while (1)
+			;
 	}
 }
 
