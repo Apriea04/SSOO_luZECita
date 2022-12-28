@@ -510,7 +510,6 @@ void accionesEncargado()
 {
 	int customer = -1; // Cliente encontrado.
 	int tipoAtencion;
-	;
 	char *id, *msg;
 
 	do
@@ -518,7 +517,7 @@ void accionesEncargado()
 		pthread_mutex_lock(&colaClientes);
 
 		// Busca el cliente que atendera segun su tipo, prioridad y tiempo de espera.
-		for (i = 0; i < NCLIENTES; i++)
+		for (int i = 0; i < NCLIENTES; i++)
 		{
 
 			// Si el cliente es actual no es vacio y no esta atendio se procede a comparar
@@ -557,7 +556,7 @@ void accionesEncargado()
 						// Si el cliente actual de la lista es de tipo APP procedemos
 						else
 						{
-							//Si el cliente seleccionado es de tipo APP procedemos
+							// Si el cliente seleccionado es de tipo APP procedemos
 							if (listaClientes[customer].tipo == 0)
 							{
 								// Si el cliente actual tiene mayor prioridad que el cliente seleccionado, el actual pasa a ser el seleccionado
@@ -579,110 +578,78 @@ void accionesEncargado()
 					}
 				}
 			}
+		}
 
 		/*
-		// Alvaro idea
-		pthread_mutex_lock(&colaClientes);
-		int posCliente = -1, prioridad = -1,
-			tipo = 0, id = -1, cambiamosCliente; // El encargado prefiere tipo
-		for (int i = 0; i < NCLIENTES; i++)
+	// Alvaro idea
+	pthread_mutex_lock(&colaClientes);
+	int posCliente = -1, prioridad = -1,
+		tipo = 0, id = -1, cambiamosCliente; // El encargado prefiere tipo
+	for (int i = 0; i < NCLIENTES; i++)
+	{
+		cambiamosCliente = 0;
+		if (listaClientes.id != 0)
 		{
-			cambiamosCliente = 0;
-			if (listaClientes.id != 0)
+			// Es un cliente, no está vacío
+			if (listaClientes[i].tipo == 1 && tipo == 0)
 			{
-				// Es un cliente, no está vacío
-				if (listaClientes[i].tipo == 1 && tipo == 0)
+				// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
+				// Actualizamos los campos
+				cambiamosCliente = 1;
+			}
+			else if (listaClientes[i].tipo == tipo && tipo == 1 || listaClientes[i].tipo == tipo && tipo == 0)
+			{
+				// Tenemos dos clientes del mismo tipo
+				if (listaClientes[i].prioridad > prioridad)
 				{
-					// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
+					// Tiene más prioridad, luego lo cogemos
 					// Actualizamos los campos
 					cambiamosCliente = 1;
 				}
-				else if (listaClientes[i].tipo == tipo && tipo == 1 || listaClientes[i].tipo == tipo && tipo == 0)
+				else if (listaClientes[i].prioridad == prioridad)
 				{
-					// Tenemos dos clientes del mismo tipo
-					if (listaClientes[i].prioridad > prioridad)
+					// Tienen la misma prioridad, cogemos el de menor id
+					if (listaClientes[i].id < id)
 					{
-						// Tiene más prioridad, luego lo cogemos
 						// Actualizamos los campos
 						cambiamosCliente = 1;
 					}
-					else if (listaClientes[i].prioridad == prioridad)
-					{
-						// Tienen la misma prioridad, cogemos el de menor id
-						if (listaClientes[i].id < id)
-						{
-							// Actualizamos los campos
-							cambiamosCliente = 1;
-						}
-					}
 				}
-			}
-			if (cambiamosCliente == 1)
-			{
-				// Actualizamos los campos
-				posCliente = i;
-				prioridad = listaClientes[i].prioridad;
-				tipo = listaClientes[i].tipo;
-				id = listaClientes[i].id;
 			}
 		}
-		pthread_mutex_unlock(&colaClientes);
-		// Fin idea
-		*/
+		if (cambiamosCliente == 1)
+		{
+			// Actualizamos los campos
+			posCliente = i;
+			prioridad = listaClientes[i].prioridad;
+			tipo = listaClientes[i].tipo;
+			id = listaClientes[i].id;
+		}
+	}
+	pthread_mutex_unlock(&colaClientes);
+	// Fin idea
+	*/
 
-			if (customer == -1)
+		if (customer == -1)
+		{
+			pthread_mutex_unlock(&colaClientes);
+			sleep(3);
+		}
+		else
+		{
+			listaClientes[customer].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+
+			struct Cliente current = listaClientes[customer];
+
+			// Calcular tipo de atencion
+			tipoAtencion = calculaAleatorios(1, 10);
+
+			if (tipoAtencion == 1)
 			{
-				pthread_mutex_unlock(&colaClientes);
-				sleep(3);
-			}
-			else
-			{
-				listaClientes[customer].atendido = 1;
-				pthread_mutex_unlock(&colaClientes);
+				// Mal Identificados
 
-				struct Cliente current = listaClientes[customer];
-
-				// Calcular tipo de atencion
-				tipoAtencion = calculaAleatorios(1, 10);
-
-				if (tipoAtencion == 1)
-				{
-					// Mal Identificados
-					sleep(calculaAleatorios(2, 6));
-				}
-				else if (tipoAtencion == 2)
-				{
-					// Confundidos
-					sleep(calculaAleatorios(1, 2));
-
-					if (current.tipo == 1)
-					{
-						// Cliente red
-						sprintf(id, "clired_%d", listaClientes[customer].id);
-						pthread_mutex_lock(&Fichero);
-						writeLogMessage(id, "Cliente de tipo RED deja el sistema debido a confusión");
-						pthread_mutex_unlock(&Fichero);
-					}
-					else
-					{
-						// Cliente app
-						sprintf(id, "clieapp_%d", listaClientes[customer].id);
-						pthread_mutex_lock(&Fichero);
-						writeLogMessage(id, "Cliente de tipo APP deja el sistema debido a confusión");
-						pthread_mutex_unlock(&Fichero);
-					}
-
-					pthread_mutex_lock(&colaClientes);
-					listaClientes[customer].atendido = 3;
-					pthread_mutex_unlock(&colaClientes);
-				}
-				else
-				{
-					// Todo en regla
-					sleep(calculaAleatorios(1, 4));
-				}
-
-				// Comienza la atención
+				// Idicamos que comienza la atención del cliente
 				if (current.tipo == 1)
 				{
 					// Cliente red
@@ -700,37 +667,130 @@ void accionesEncargado()
 					pthread_mutex_unlock(&Fichero);
 				}
 
-				// Termina la atención
+				sleep(calculaAleatorios(2, 6));
+
+				// Indicamos que finaliza la atención y el motivo
 				if (current.tipo == 1)
 				{
 					// Cliente red
 					sprintf(id, "clired_%d", current.id);
 					pthread_mutex_lock(&Fichero);
-					writeLogMessage(id, "Ha finalizado la atención de cliente de tipo RED");
+					writeLogMessage(id, "A finalizado la atención del cliente.");
+					writeLogMessage(id, "El cliente estaba mal identificado.");
 					pthread_mutex_unlock(&Fichero);
 				}
 				else
 				{
 					// Cliente app
-					sprintf(id, "clieapp_%d", current.id);
+					sprintf(id, "clieapp_%d", listaClientes[customer].id);
 					pthread_mutex_lock(&Fichero);
-					writeLogMessage(id, "Ha finalizado la atención de cliente de tipo APP");
+					writeLogMessage(id, "A finalizado la antención del cliente");
+					writeLogMessage(id, "El cliente estaba mal identificado.");
 					pthread_mutex_unlock(&Fichero);
 				}
-
-				// Motivo de finalización
-				writeLogMessage(id, "Ha finalizado su atención por este motivo.");
-				pthread_mutex_unlock(&Fichero);
 
 				pthread_mutex_lock(&colaClientes);
 				listaClientes[customer].atendido = 2;
 				pthread_mutex_unlock(&colaClientes);
 			}
-			while (1)
-				;
-		}
-	}
+			else if (tipoAtencion == 2)
+			{
+				// Confundidos
 
-	void accionesTecnicoDomiciliario()
-	{
-	}
+				// Indicamos que comienza la atención del cliente
+				if (current.tipo == 1)
+				{
+					// Cliente red
+					sprintf(id, "clired_%d", current.id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "Cliente de tipo RED va a ser atendido.");
+					pthread_mutex_unlock(&Fichero);
+				}
+				else
+				{
+					// Cliente app
+					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
+					pthread_mutex_unlock(&Fichero);
+				}
+
+				sleep(calculaAleatorios(1, 2));
+
+				// Indicamos que finaliza la atención y el motivo
+				if (current.tipo == 1)
+				{
+					// Cliente red
+					sprintf(id, "clired_%d", listaClientes[customer].id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "Cliente de tipo RED deja el sistema debido a confusión");
+					pthread_mutex_unlock(&Fichero);
+				}
+				else
+				{
+					// Cliente app
+					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "Cliente de tipo APP deja el sistema debido a confusión");
+					pthread_mutex_unlock(&Fichero);
+				}
+
+				pthread_mutex_lock(&colaClientes);
+				listaClientes[customer].atendido = 3;
+				pthread_mutex_unlock(&colaClientes);
+			}
+			else
+			{
+				// Todo en regla
+
+				// Idicamos que comienza la atención del cliente
+				if (current.tipo == 1)
+				{
+					// Cliente red
+					sprintf(id, "clired_%d", current.id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "Cliente de tipo RED va a ser atendido.");
+					pthread_mutex_unlock(&Fichero);
+				}
+				else
+				{
+					// Cliente app
+					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
+					pthread_mutex_unlock(&Fichero);
+				}
+
+				sleep(calculaAleatorios(1, 4));
+
+				// Indicamos que finaliza la atención y el motivo
+				if (current.tipo == 1)
+				{
+					// Cliente red
+					sprintf(id, "clired_%d", current.id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "A finalizado la atención del cliente.");
+					writeLogMessage(id, "El cliente tiene todo en regla.");
+					pthread_mutex_unlock(&Fichero);
+				}
+				else
+				{
+					// Cliente app
+					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					pthread_mutex_lock(&Fichero);
+					writeLogMessage(id, "A finalizado la antención del cliente");
+					writeLogMessage(id, "El cliente tiene todo en regla.");
+					pthread_mutex_unlock(&Fichero);
+				}
+
+				pthread_mutex_lock(&colaClientes);
+				listaClientes[customer].atendido = 2;
+				pthread_mutex_unlock(&colaClientes);
+			}
+		}
+	} while (1);
+}
+
+void accionesTecnicoDomiciliario()
+{
+}
