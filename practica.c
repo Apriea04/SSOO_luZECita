@@ -86,7 +86,7 @@ int NClientesRed()
  * La primera posición es la 0
  * Precondición: el cliente debe estar en la lista
  */
-int dondeEsta(struct Cliente *buscado)
+int obtenerPosicion(struct Cliente *buscado)
 {
 	int i;
 	pthread_mutex_lock(&colaClientes);
@@ -404,7 +404,7 @@ void accionesCliente(struct Cliente *cliente)
 		if (seVa)
 		{
 			// Libero su espacio de la cola
-			int posicion = dondeEsta(cliente);
+			int posicion = obtenerPosicion(cliente);
 
 			pthread_mutex_lock(&colaClientes);
 			listaClientes[posicion].id = 0;
