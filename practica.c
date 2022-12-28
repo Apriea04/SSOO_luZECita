@@ -89,16 +89,17 @@ int NClientesRed()
 int dondeEsta(struct Cliente *buscado)
 {
 	int i;
-	// Sin proteger porque solo leo ??????????????????????????????????????????
+	pthread_mutex_lock(&colaClientes);
 	for (i = 0; i < NCLIENTES; i++)
 	{
 		// Un cliente es identificado por su id y tipo.
 		if (listaClientes[i].id == buscado->id && listaClientes[i].tipo == buscado->tipo)
 		{
-			return i;
+			break;
 		}
 	}
-	return -1;
+	pthread_mutex_unlock(&colaClientes);
+	return i;
 }
 
 /**MANEJADORAS DE SEÑAL*/
