@@ -580,6 +580,56 @@ void accionesEncargado()
 				}
 			}
 
+		/*
+		// Alvaro idea
+		pthread_mutex_lock(&colaClientes);
+		int posCliente = -1, prioridad = -1,
+			tipo = 0, id = -1, cambiamosCliente; // El encargado prefiere tipo
+		for (int i = 0; i < NCLIENTES; i++)
+		{
+			cambiamosCliente = 0;
+			if (listaClientes.id != 0)
+			{
+				// Es un cliente, no está vacío
+				if (listaClientes[i].tipo == 1 && tipo == 0)
+				{
+					// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
+					// Actualizamos los campos
+					cambiamosCliente = 1;
+				}
+				else if (listaClientes[i].tipo == tipo && tipo == 1 || listaClientes[i].tipo == tipo && tipo == 0)
+				{
+					// Tenemos dos clientes del mismo tipo
+					if (listaClientes[i].prioridad > prioridad)
+					{
+						// Tiene más prioridad, luego lo cogemos
+						// Actualizamos los campos
+						cambiamosCliente = 1;
+					}
+					else if (listaClientes[i].prioridad == prioridad)
+					{
+						// Tienen la misma prioridad, cogemos el de menor id
+						if (listaClientes[i].id < id)
+						{
+							// Actualizamos los campos
+							cambiamosCliente = 1;
+						}
+					}
+				}
+			}
+			if (cambiamosCliente == 1)
+			{
+				// Actualizamos los campos
+				posCliente = i;
+				prioridad = listaClientes[i].prioridad;
+				tipo = listaClientes[i].tipo;
+				id = listaClientes[i].id;
+			}
+		}
+		pthread_mutex_unlock(&colaClientes);
+		// Fin idea
+		*/
+
 			if (customer == -1)
 			{
 				pthread_mutex_unlock(&colaClientes);
