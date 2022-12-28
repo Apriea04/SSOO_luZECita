@@ -542,7 +542,7 @@ void accionesEncargado()
 						}
 						else if (listaClientes[i].prioridad == listaClientes[customer].prioridad)
 						{
-							if (listaClientes[i].id == listaClientes[customer].id)
+							if (listaClientes[i].id < listaClientes[customer].id)
 							{
 								customer = i;
 							}
