@@ -186,6 +186,67 @@ int obtenerPosicionProximoCliente()
 	return posProxCliente;
 }
 
+/**
+ * Obtiene al próximo cliente de un tipo específico que debe
+ * ser atendido teniendo en cuenta su prioridad y tiempo esperado.
+ *
+ * tipoCliente (int): tipo de cliente que se va a buscar
+ */
+int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
+{
+	// Variables que guardarán los datos del próximo cliente
+	int posProxCliente = -1;
+	int prioridadProxCliente = -1;
+	int idProxCliente = -1;
+
+	int cambiarCliente = 0;
+
+	pthread_mutex_lock(&colaClientes);
+	for (int i = 0; i < NCLIENTES; i++)
+	{
+		cambiarCliente = 0;
+		if (listaClientes[i].id != 0)
+		{
+			// Es un cliente, no está vacío
+			if (listaClientes[i].tipo != tipoCliente)
+			{
+				// El cliente actual no tiene el tipo de cliente buscado, lo omitimos
+				continue;
+			}
+			else
+			{
+				// Tenemos dos clientes del mismo tipo
+				if (listaClientes[i].prioridad > prioridadProxCliente)
+				{
+					// Tiene más prioridad, luego cambiamos el cliente
+					// Se debe actualizar los campos por el nuevo cliente
+					cambiarCliente = 1;
+				}
+				else if (listaClientes[i].prioridad == prioridadProxCliente)
+				{
+					// Tienen la misma prioridad, cogemos el de menor id (más tiempo esperado)
+					if (listaClientes[i].id < idProxCliente)
+					{
+						// Se debe actualizar los campos por el nuevo cliente
+						cambiarCliente = 1;
+					}
+				}
+			}
+		}
+
+		// Comprobar si se deben modificar los campos por este cliente
+		if (cambiarCliente == 1)
+		{
+			posProxCliente = i;
+			prioridadProxCliente = listaClientes[i].prioridad;
+			idProxCliente = listaClientes[i].id;
+		}
+	}
+	pthread_mutex_unlock(&colaClientes);
+
+	return posProxCliente;
+}
+
 // TODO: Algunas funciones se han escrito al final en vez de aquí, sería conveniente moverlas.
 
 /**MANEJADORAS DE SEÑAL*/
@@ -616,7 +677,15 @@ void accionesCliente(struct Cliente *cliente)
 }
 
 // DANIEL
-void accionesTecnico()
+/**
+ * LLeva a cabo las funciones de un técnico o
+ * responsable de reparaciones
+ *
+ * tipoTecnico (int): entero que representa si un técnico
+ * 	                  se encarga de la app o de la red
+ * posTecnico (int): entero con la posición en la lista del técnico
+ */
+void accionesTecnico(int tipoTecnico, int posTecnico)
 {
 }
 
