@@ -13,6 +13,8 @@
 #define NENCARGADOS 1
 #define NTECDOMICILIARIA 1
 
+// TODO: Crear variable para llevar a cabo salida controlada
+
 /**DECLARACIONES GLOBALES*/
 
 // Mutex
@@ -721,12 +723,19 @@ void accionesCliente(struct Cliente *cliente)
  * LLeva a cabo las funciones de un técnico o
  * responsable de reparaciones
  *
- * tipoTecnico (int): entero que representa si un técnico
+ * tipoTecnico (int): entero que representa si un trabajador
  * 	                  se encarga de la app o de la red
- * posTecnico (int): entero con la posición en la lista del técnico
+ * posTecnico (int): entero con la posición en la lista del trabajador
  */
 void accionesTecnico(int tipoTecnico, int posTecnico)
 {
+	// Bucle en el que el trabajador va atendiendo a los clientes que le lleguen
+	do
+	{
+		// Obtenemos posición del cliente a atender según el tipo de trabajdor
+		int posCliente = obtenerPosicionProximoClienteSegunTipo(tipoTecnico);
+		// TODO: Crear método que unifique esta parte con la de Mario: atenderCliente()
+	} while (1);
 }
 
 // MARIO
