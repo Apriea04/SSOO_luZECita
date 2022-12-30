@@ -30,7 +30,7 @@ struct Cliente
 	int atendido;  // 0 SI NO ATENDIDO; 1 SI ESTÁ EN PROCESO; 2 SI ESTÁ ATENDIDO; 3 SI SE CONFUNDE O MAL IDENTIFICADO
 	int tipo;	   // 0 SI APP; 1 SI RED
 	int prioridad; // Del 1 al 10 aleatoria. 10 es la prioridad más alta
-	int solicitud;
+	int solicitud; // 0 si no solicita atención domiciliaria Ó ya se le atendió domiciliariamente; 1 si sí la solicita
 };
 
 // Listas de hilos trabajadores
@@ -488,7 +488,58 @@ void accionesCliente(struct Cliente *cliente)
 		if (calculaAleatorios(0, 10) <= 3)
 		{
 			// Y quiere atención domiciliaria
-			// TODO
+			// TODO: comprobar este bloque de código
+			int sol;
+			do
+			{
+				pthread_mutex_lock(&solicitudes);
+				sol = numSolicitudesDomicilio;
+				pthread_mutex_unlock(&solicitudes);
+
+				if (sol > 4)
+				{
+					sleep(3);
+				}
+			} while (sol > 4);
+
+			// numSolicitudesDomicilio <= 4
+
+			pthread_mutex_lock(&logFile);
+			writeLogMessage(id, "Esperando a ser atendido en domicilio.");
+			pthread_mutex_unlock(&logFile);
+
+			pthread_mutex_lock(&colaClientes);
+			cliente->solicitud = 1;
+			pthread_mutex_unlock(&colaClientes);
+
+			pthread_mutex_lock(&solicitudes);
+			numSolicitudesDomicilio += 1;
+			if (numSolicitudesDomicilio == 4)
+			{
+				// Damos el aviso:
+				pthread_mutex_unlock(&solicitudes);
+				pthread_cond_signal(&condSolicitudesDomicilio);
+			}
+			else
+			{
+				pthread_mutex_unlock(&solicitudes);
+			}
+
+			pthread_mutex_lock(&colaClientes);
+			int estadoSolicitud = cliente->solicitud;
+			pthread_mutex_unlock(&colaClientes);
+
+			while (estadoSolicitud != 0)
+			{
+				pthread_cond_wait(&condSolicitudesDomicilio);
+				pthread_mutex_lock(&colaClientes);
+				int estadoSolicitud = cliente->solicitud;
+				pthread_mutex_unlock(&colaClientes);
+			}
+
+			pthread_mutex_lock(&logFile);
+			writeLogMessage(id, "Recibió atención domiciliaria.");
+			pthread_mutex_unlock(&logFile);
 		}
 	}
 
