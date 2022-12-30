@@ -306,7 +306,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		{
 			// Definir id de responsable de reparaciones
 			pthread_mutex_lock(&mutexTrabajadores);
-			numID = listaTecnicos[posTrabajador].id;
+			numID = listaRespReparaciones[posTrabajador].id;
 			pthread_mutex_unlock(&mutexTrabajadores);
 			sprintf(idTrabajador, "resprep_%d", numID);
 		}
