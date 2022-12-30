@@ -18,7 +18,7 @@
 /**DECLARACIONES GLOBALES*/
 
 // Mutex
-pthread_mutex_t Fichero, colaClientes, solicitudes;
+pthread_mutex_t Fichero, colaClientes, mutexTrabajadores, solicitudes;
 
 // Variables condición
 pthread_cond_t condSolicitudesDomicilio;
@@ -264,13 +264,14 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 /**
  * Lleva a cabo el proceso de atención de un técnico a un cliente
  *
- * tipoTecnico (int): tipo de técnico que está atendiendo al cliente
- * posTecnico (int): posición del técnico en su respectiva lista
+ * tipoTrabajador (int): tipo de técnico que está atendiendo al cliente
+ * posTrabajador (int): posición del técnico en su respectiva lista
+ * tipoCliente (int): tipo de cliente
  * posCliente (int): posición del cliente en la lista de clientes
  */
-void atenderCliente(int tipoTecnico, int posTecnico, int posCliente)
+void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
 {
-	// TODO: Agregar mensajes de técnicos a los logs usando tipoTecnico y posTecnico
+	// TODO: Agregar mensajes de técnicos a los logs usando tipoTecnico y posTecnico y aumentar clientes atendidos
 
 	if (posCliente == -1)
 	{
@@ -279,12 +280,60 @@ void atenderCliente(int tipoTecnico, int posTecnico, int posCliente)
 	}
 	else
 	{
-		// Indicamos al cliente, que está siendo atendido
+		// Marcar al cliente como en proceso de atención
 		pthread_mutex_lock(&colaClientes);
 		listaClientes[posCliente].atendido = 1;
 		pthread_mutex_unlock(&colaClientes);
 
-		char *id, *msg;
+		char *idTrabajador, *idCliente, *msg;
+
+		// Definir id del trabajador según su tipo
+		int numID = 1;
+		if (tipoTrabajador == -1)
+		{
+			// Definir id del encargado
+			sprintf(idTrabajador, "encargado_%d", numID);
+		}
+		else if (tipoTrabajador == 0)
+		{
+			// Definir id de técnico
+			pthread_mutex_lock(&mutexTrabajadores);
+			numID = listaTecnicos[posTrabajador].id;
+			pthread_mutex_unlock(&mutexTrabajadores);
+			sprintf(idTrabajador, "tecnico_%d", numID);
+		}
+		else if (tipoTrabajador == 1)
+		{
+			// Definir id de responsable de reparaciones
+			pthread_mutex_lock(&mutexTrabajadores);
+			numID = listaTecnicos[posTrabajador].id;
+			pthread_mutex_unlock(&mutexTrabajadores);
+			sprintf(idTrabajador, "resprep_%d", numID);
+		}
+
+		// Definir id del cliente según su tipo
+		if (tipoCliente == 0)
+		{
+			// Definir id de cliente de red
+			pthread_mutex_lock(&colaClientes);
+			numID = listaClientes[posCliente].id;
+			pthread_mutex_unlock(&colaClientes);
+			sprintf(idCliente, "clired_%d", numID);
+		}
+		else
+		{
+			// Definir id de cliente de app
+			pthread_mutex_lock(&colaClientes);
+			numID = listaClientes[posCliente].id;
+			pthread_mutex_unlock(&colaClientes);
+			sprintf(idCliente, "clieapp_%d", numID);
+		}
+
+		// Indicamos que comienza el proceso de atención en el log
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage(idCliente, "Va a ser atendido.");
+		writeLogMessage(idTrabajador, "Va a atender a un cliente.");
+		pthread_mutex_unlock(&Fichero);
 
 		// Calcular tipo de atención
 		int tipoAtencion = calculaAleatorios(1, 10);
@@ -293,47 +342,16 @@ void atenderCliente(int tipoTecnico, int posTecnico, int posCliente)
 		{
 			// Cliente mal identificado
 
-			// Idicamos que comienza la atención del cliente
-			if (listaClientes[posCliente].tipo == 1)
-			{
-				// Cliente RED
-				sprintf(id, "clired_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo RED va a ser atendido.");
-				pthread_mutex_unlock(&Fichero);
-			}
-			else
-			{
-				// Cliente APP
-				sprintf(id, "clieapp_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo APP va a ser antendido.");
-				pthread_mutex_unlock(&Fichero);
-			}
-
 			// Atendemos al cliente...
 			sleep(calculaAleatorios(2, 6));
 
-			// Indicamos que finaliza la atención y el motivo
-			if (listaClientes[posCliente].tipo == 1)
-			{
-				// Cliente RED
-				sprintf(id, "clired_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Ha finalizado la atención del cliente.");
-				writeLogMessage(id, "El cliente estaba mal identificado.");
-				pthread_mutex_unlock(&Fichero);
-			}
-			else
-			{
-				// Cliente APP
-				sprintf(id, "clieapp_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "A finalizado la antención del cliente");
-				writeLogMessage(id, "El cliente estaba mal identificado.");
-				pthread_mutex_unlock(&Fichero);
-			}
+			// Indicamos que finaliza la atención y el motivo en el log
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage(idCliente, "Ha terminado de ser atendido. Estaba mal identificado.");
+			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			pthread_mutex_unlock(&Fichero);
 
+			// Marcar cliente como atendido
 			pthread_mutex_lock(&colaClientes);
 			listaClientes[posCliente].atendido = 2;
 			pthread_mutex_unlock(&colaClientes);
@@ -342,45 +360,16 @@ void atenderCliente(int tipoTecnico, int posTecnico, int posCliente)
 		{
 			// Cliente confundido
 
-			// Indicamos que comienza la atención del cliente
-			if (listaClientes[posCliente].tipo == 1)
-			{
-				// Cliente RED
-				sprintf(id, "clired_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo RED va a ser atendido.");
-				pthread_mutex_unlock(&Fichero);
-			}
-			else
-			{
-				// Cliente APP
-				sprintf(id, "clieapp_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
-				pthread_mutex_unlock(&Fichero);
-			}
-
 			// Atendemos al cliente...
 			sleep(calculaAleatorios(1, 2));
 
-			// Indicamos que finaliza la atención y el motivo
-			if (listaClientes[posCliente].tipo == 1)
-			{
-				// Cliente RED
-				sprintf(id, "clired_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo RED deja el sistema debido a confusión");
-				pthread_mutex_unlock(&Fichero);
-			}
-			else
-			{
-				// Cliente APP
-				sprintf(id, "clieapp_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo APP deja el sistema debido a confusión");
-				pthread_mutex_unlock(&Fichero);
-			}
+			// Indicamos que finaliza la atención y el motivo en el log
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage(idCliente, "Ha dejado el sistema por confusión.");
+			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			pthread_mutex_unlock(&Fichero);
 
+			// Marcar cliente como confundido
 			pthread_mutex_lock(&colaClientes);
 			listaClientes[posCliente].atendido = 3;
 			pthread_mutex_unlock(&colaClientes);
@@ -389,46 +378,14 @@ void atenderCliente(int tipoTecnico, int posTecnico, int posCliente)
 		{
 			// Cliente con todo en regla
 
-			// Indicamos que comienza la atención del cliente
-			if (listaClientes[posCliente].tipo == 1)
-			{
-				// Cliente RED
-				sprintf(id, "clired_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo RED va a ser atendido.");
-				pthread_mutex_unlock(&Fichero);
-			}
-			else
-			{
-				// Cliente APP
-				sprintf(id, "clieapp_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
-				pthread_mutex_unlock(&Fichero);
-			}
-
 			// Atendemos al cliente...
 			sleep(calculaAleatorios(1, 4));
 
-			// Indicamos que finaliza la atención y el motivo
-			if (listaClientes[posCliente].tipo == 1)
-			{
-				// Cliente RED
-				sprintf(id, "clired_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "A finalizado la atención del cliente.");
-				writeLogMessage(id, "El cliente tiene todo en regla.");
-				pthread_mutex_unlock(&Fichero);
-			}
-			else
-			{
-				// Cliente APP
-				sprintf(id, "clieapp_%d", listaClientes[posCliente].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "A finalizado la antención del cliente");
-				writeLogMessage(id, "El cliente tiene todo en regla.");
-				pthread_mutex_unlock(&Fichero);
-			}
+			// Indicamos que finaliza la atención y el motivo en el log
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage(idCliente, "Ha terminado de ser atendido. Todo en regla.");
+			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			pthread_mutex_unlock(&Fichero);
 
 			pthread_mutex_lock(&colaClientes);
 			listaClientes[posCliente].atendido = 2;
@@ -531,6 +488,7 @@ int main()
 	// Inicicialización de mutex
 	pthread_mutex_init(&Fichero, NULL);
 	pthread_mutex_init(&colaClientes, NULL);
+	pthread_mutex_init(&mutexTrabajadores, NULL);
 	pthread_mutex_init(&solicitudes, NULL);
 
 	// Inicialización de variables condición
@@ -669,6 +627,7 @@ int main()
 	// Eliminar los mutex al salir
 	pthread_mutex_destroy(&Fichero);
 	pthread_mutex_destroy(&colaClientes);
+	pthread_mutex_destroy(&mutexTrabajadores);
 	pthread_mutex_destroy(&solicitudes);
 
 	return 0;
@@ -927,7 +886,7 @@ void accionesEncargado()
 		posCliente = obtenerPosicionProximoCliente();
 
 		// Atender cliente como encargado
-		atenderCliente(-1, -1, posCliente);
+		atenderCliente(-1, 1, posCliente);
 	} while (1);
 }
 
