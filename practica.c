@@ -33,6 +33,12 @@ struct Cliente
 	int solicitud; // 0 si no solicita atención domiciliaria Ó ya se le atendió domiciliariamente; 1 si sí la solicita
 };
 
+struct Trabajador
+{
+	int id;				   // Número secuencial comenzando en 1 para cada trabajador
+	int clientesAtendidos; // Número clientes atendidos por el técnico
+};
+
 // Listas de hilos trabajadores
 pthread_t tecnicos[NTECNICOS];
 pthread_t respReparaciones[NRESPREPARACIONES];
@@ -41,6 +47,12 @@ pthread_t tecAttDomiciliaria[NTECDOMICILIARIA];
 
 // Lista de clientes
 struct Cliente listaClientes[NCLIENTES];
+
+// Lista de técnicos
+struct Trabajador *listaTecnicos;
+
+// Lista de responsables de reparaciones
+struct Trabajador *listaRespReparaciones;
 
 FILE *logFile;
 
@@ -275,6 +287,7 @@ void *Tecnico(void *arg)
 {
 	int index = *(int *)arg;
 	printf("Técnico %d\n", index);
+
 	free(arg);
 }
 
@@ -351,12 +364,21 @@ int main()
 	contadorRed = 0;
 	numSolicitudesDomicilio = 0;
 
+	// Inicialización de lista de clientes
 	for (i = 0; i < NCLIENTES; i++)
 	{
 		listaClientes[i].id = 0;
 		listaClientes[i].prioridad = 0;
 		listaClientes[i].atendido = 0;
 		listaClientes[i].solicitud = 0;
+	}
+
+	// Inicialización de lista de técnicos
+	listaTecnicos = (struct Trabajador *)malloc(NTECNICOS * sizeof(struct Trabajador));
+	for (i = 0; i < NTECNICOS; i++)
+	{
+		listaTecnicos[i].id = 0;
+		listaTecnicos[i].clientesAtendidos = 0;
 	}
 
 	// Inicialización de técnicos
@@ -369,6 +391,17 @@ int main()
 			perror("[ERROR] Error al crear hilo de técnico.");
 			return -1;
 		}
+
+		// Agregar a lista de técnicos
+		listaTecnicos[i].id = i + 1;
+	}
+
+	// Inicialización de lista de reponsables de reparaciones
+	listaRespReparaciones = (struct Trabajador *)malloc(NRESPREPARACIONES * sizeof(struct Trabajador));
+	for (i = 0; i < NRESPREPARACIONES; i++)
+	{
+		listaRespReparaciones[i].id = 0;
+		listaRespReparaciones[i].clientesAtendidos = 0;
 	}
 
 	// Inicialización de responsables de reparaciones
@@ -381,6 +414,9 @@ int main()
 			perror("[ERROR] Error al crear hilo de responsable de reparaciones.");
 			return -1;
 		}
+
+		// Agregar a lista de responsables de reparaciones
+		listaTecnicos[i].id = i + 1;
 	}
 
 	// Inicialización de encargados
@@ -448,6 +484,10 @@ int main()
 	// 		return -1;
 	// 	}
 	// }
+
+	// Liberar listas
+	free(listaTecnicos);
+	free(listaRespReparaciones);
 
 	// Eliminar los mutex al salir
 	pthread_mutex_destroy(&Fichero);
@@ -541,7 +581,7 @@ void accionesCliente(struct Cliente *cliente)
 	}
 
 	// Calculamos si se va porque la aplicación es difícil:
-	if (calculaAleatorios(0, 10) < 2)
+	if (calculaAleatorios(0, 100) <= 10)
 	{
 		// Encontró la aplicación dificil
 		pthread_mutex_lock(&Fichero);
@@ -656,7 +696,7 @@ void accionesCliente(struct Cliente *cliente)
 
 			while (estadoSolicitud != 0)
 			{
-				pthread_cond_wait(&condSolicitudesDomicilio);
+				pthread_cond_wait(&condSolicitudesDomicilio, &solicitudes);
 				pthread_mutex_lock(&colaClientes);
 				int estadoSolicitud = cliente->solicitud;
 				pthread_mutex_unlock(&colaClientes);
