@@ -124,6 +124,70 @@ void liberaCliente(struct Cliente *cliente)
 	pthread_mutex_unlock(&colaClientes);
 }
 
+/**
+ * Obtiene al próximo cliente que debe ser atendido,
+ * tendiendo en cuenta su tipo, prioridad y tiempo esperado.
+ */
+int obtenerPosicionProximoCliente()
+{
+	// Variables que guardarán los datos del próximo cliente
+	int posProxCliente = -1;
+	int prioridadProxCliente = -1;
+	int tipoProxCliente = 0;
+	int idProxCliente = -1;
+
+	int cambiarCliente = 0;
+
+	pthread_mutex_lock(&colaClientes);
+	for (int i = 0; i < NCLIENTES; i++)
+	{
+		cambiarCliente = 0;
+		if (listaClientes[i].id != 0)
+		{
+			// Es un cliente, no está vacío
+			if (listaClientes[i].tipo == 1 && tipoProxCliente == 0)
+			{
+				// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
+				// Se debe actualizar los campos por el nuevo cliente
+				cambiarCliente = 1;
+			}
+			else if (listaClientes[i].tipo == tipoProxCliente && tipoProxCliente == 1 || listaClientes[i].tipo == tipoProxCliente && tipoProxCliente == 0)
+			{
+				// Tenemos dos clientes del mismo tipo
+				if (listaClientes[i].prioridad > prioridadProxCliente)
+				{
+					// Tiene más prioridad, luego cambiamos el cliente
+					// Se debe actualizar los campos por el nuevo cliente
+					cambiarCliente = 1;
+				}
+				else if (listaClientes[i].prioridad == prioridadProxCliente)
+				{
+					// Tienen la misma prioridad, cogemos el de menor id (más tiempo esperado)
+					if (listaClientes[i].id < idProxCliente)
+					{
+						// Se debe actualizar los campos por el nuevo cliente
+						cambiarCliente = 1;
+					}
+				}
+			}
+		}
+
+		// Comprobar si se deben modificar los campos por este cliente
+		if (cambiarCliente == 1)
+		{
+			posProxCliente = i;
+			prioridadProxCliente = listaClientes[i].prioridad;
+			tipoProxCliente = listaClientes[i].tipo;
+			idProxCliente = listaClientes[i].id;
+		}
+	}
+	pthread_mutex_unlock(&colaClientes);
+
+	return posProxCliente;
+}
+
+// TODO: Algunas funciones se han escrito al final en vez de aquí, sería conveniente moverlas.
+
 /**MANEJADORAS DE SEÑAL*/
 
 void handlerClienteApp(int sig)
@@ -287,7 +351,7 @@ int main()
 		pause();
 	}
 
-	// IMPORTANTE: No sé si esto es necesario, conviene revisarlo posteriormente - Joins de todos los hilos
+	// TODO: No sé si esto es necesario, conviene revisarlo posteriormente - Joins de todos los hilos
 	// for (i = 0; i < NTECNICOS; i++)
 	// {
 	// 	if (pthread_join(tecnicos[i], NULL) != 0)
@@ -559,139 +623,23 @@ void accionesTecnico()
 // MARIO
 void accionesEncargado()
 {
-	int customer = -1; // Cliente encontrado.
+	int cliente = -1; // Cliente encontrado.
 	int tipoAtencion;
 	char *id, *msg;
 
 	do
 	{
-		pthread_mutex_lock(&colaClientes);
+		cliente = obtenerPosicionProximoCliente();
 
-		// Busca el cliente que atendera segun su tipo, prioridad y tiempo de espera.
-		for (int i = 0; i < NCLIENTES; i++)
+		if (cliente == -1)
 		{
-
-			// Si el cliente es actual no es vacio y no esta atendio se procede a comparar
-			if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
-			{
-				// Si no hay ningún cliente seleccionado se añade su posición
-				if (customer == -1)
-				{
-					customer = i;
-				}
-				// Si la posición del cliente es menor que la posición final se procede
-				else if (customer < NCLIENTES - 1)
-				{
-					// Si el cliente actual de la lista es de tipo RED procedemos
-					if (listaClientes[i].tipo == 1)
-					{
-						// Si el cliente seleccionado es de tipo APP se cambia su posición con el cliente actual
-						if (listaClientes[customer].tipo == 0)
-						{
-							customer = i;
-						}
-						// Si el cliente actual tiene mayor prioridad que el cliente seleccionado, el actual pasa a ser el seleccionado
-						else if (listaClientes[i].prioridad > listaClientes[customer].prioridad)
-						{
-							customer = i;
-						}
-						// Si el cliente actual y el seleccionado tienen la misma prioridad se procede
-						else if (listaClientes[i].prioridad == listaClientes[customer].prioridad)
-						{
-							// Si la id del cliente actual es menor que la del cliente seleccionado, el actual pasa a ser el seleccionado
-							if (listaClientes[i].id < listaClientes[customer].id)
-							{
-								customer = i;
-							}
-						}
-						// Si el cliente actual de la lista es de tipo APP procedemos
-						else
-						{
-							// Si el cliente seleccionado es de tipo APP procedemos
-							if (listaClientes[customer].tipo == 0)
-							{
-								// Si el cliente actual tiene mayor prioridad que el cliente seleccionado, el actual pasa a ser el seleccionado
-								if (listaClientes[i].prioridad > listaClientes[customer].prioridad)
-								{
-									customer = i;
-								}
-								// Si el cliente actual y el seleccionado tienen la misma prioridad se procede
-								else if (listaClientes[i].prioridad == listaClientes[customer].prioridad)
-								{
-									// Si la id del cliente actual es menor que la del cliente seleccionado, el actual pasa a ser el seleccionado
-									if (listaClientes[i].id < listaClientes[customer].id)
-									{
-										customer = i;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/*
-	// Alvaro idea
-	pthread_mutex_lock(&colaClientes);
-	int posCliente = -1, prioridad = -1,
-		tipo = 0, id = -1, cambiamosCliente; // El encargado prefiere tipo
-	for (int i = 0; i < NCLIENTES; i++)
-	{
-		cambiamosCliente = 0;
-		if (listaClientes.id != 0)
-		{
-			// Es un cliente, no está vacío
-			if (listaClientes[i].tipo == 1 && tipo == 0)
-			{
-				// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
-				// Actualizamos los campos
-				cambiamosCliente = 1;
-			}
-			else if (listaClientes[i].tipo == tipo && tipo == 1 || listaClientes[i].tipo == tipo && tipo == 0)
-			{
-				// Tenemos dos clientes del mismo tipo
-				if (listaClientes[i].prioridad > prioridad)
-				{
-					// Tiene más prioridad, luego lo cogemos
-					// Actualizamos los campos
-					cambiamosCliente = 1;
-				}
-				else if (listaClientes[i].prioridad == prioridad)
-				{
-					// Tienen la misma prioridad, cogemos el de menor id
-					if (listaClientes[i].id < id)
-					{
-						// Actualizamos los campos
-						cambiamosCliente = 1;
-					}
-				}
-			}
-		}
-		if (cambiamosCliente == 1)
-		{
-			// Actualizamos los campos
-			posCliente = i;
-			prioridad = listaClientes[i].prioridad;
-			tipo = listaClientes[i].tipo;
-			id = listaClientes[i].id;
-		}
-	}
-	pthread_mutex_unlock(&colaClientes);
-	// Fin idea
-	*/
-
-		if (customer == -1)
-		{
-			pthread_mutex_unlock(&colaClientes);
 			sleep(3);
 		}
 		else
 		{
-			listaClientes[customer].atendido = 1;
-			pthread_mutex_unlock(&colaClientes);
+			listaClientes[cliente].atendido = 1;
 
-			struct Cliente current = listaClientes[customer];
+			struct Cliente current = listaClientes[cliente];
 
 			// Calcular tipo de atencion
 			tipoAtencion = calculaAleatorios(1, 10);
@@ -712,7 +660,7 @@ void accionesEncargado()
 				else
 				{
 					// Cliente app
-					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					sprintf(id, "clieapp_%d", listaClientes[cliente].id);
 					pthread_mutex_lock(&Fichero);
 					writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
 					pthread_mutex_unlock(&Fichero);
@@ -733,7 +681,7 @@ void accionesEncargado()
 				else
 				{
 					// Cliente app
-					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					sprintf(id, "clieapp_%d", listaClientes[cliente].id);
 					pthread_mutex_lock(&Fichero);
 					writeLogMessage(id, "A finalizado la antención del cliente");
 					writeLogMessage(id, "El cliente estaba mal identificado.");
@@ -741,7 +689,7 @@ void accionesEncargado()
 				}
 
 				pthread_mutex_lock(&colaClientes);
-				listaClientes[customer].atendido = 2;
+				listaClientes[cliente].atendido = 2;
 				pthread_mutex_unlock(&colaClientes);
 			}
 			else if (tipoAtencion == 2)
@@ -760,7 +708,7 @@ void accionesEncargado()
 				else
 				{
 					// Cliente app
-					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					sprintf(id, "clieapp_%d", listaClientes[cliente].id);
 					pthread_mutex_lock(&Fichero);
 					writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
 					pthread_mutex_unlock(&Fichero);
@@ -772,7 +720,7 @@ void accionesEncargado()
 				if (current.tipo == 1)
 				{
 					// Cliente red
-					sprintf(id, "clired_%d", listaClientes[customer].id);
+					sprintf(id, "clired_%d", listaClientes[cliente].id);
 					pthread_mutex_lock(&Fichero);
 					writeLogMessage(id, "Cliente de tipo RED deja el sistema debido a confusión");
 					pthread_mutex_unlock(&Fichero);
@@ -780,14 +728,14 @@ void accionesEncargado()
 				else
 				{
 					// Cliente app
-					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					sprintf(id, "clieapp_%d", listaClientes[cliente].id);
 					pthread_mutex_lock(&Fichero);
 					writeLogMessage(id, "Cliente de tipo APP deja el sistema debido a confusión");
 					pthread_mutex_unlock(&Fichero);
 				}
 
 				pthread_mutex_lock(&colaClientes);
-				listaClientes[customer].atendido = 3;
+				listaClientes[cliente].atendido = 3;
 				pthread_mutex_unlock(&colaClientes);
 			}
 			else
@@ -806,7 +754,7 @@ void accionesEncargado()
 				else
 				{
 					// Cliente app
-					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					sprintf(id, "clieapp_%d", listaClientes[cliente].id);
 					pthread_mutex_lock(&Fichero);
 					writeLogMessage(id, "Cliente de tipo APP va a ser antendido");
 					pthread_mutex_unlock(&Fichero);
@@ -827,7 +775,7 @@ void accionesEncargado()
 				else
 				{
 					// Cliente app
-					sprintf(id, "clieapp_%d", listaClientes[customer].id);
+					sprintf(id, "clieapp_%d", listaClientes[cliente].id);
 					pthread_mutex_lock(&Fichero);
 					writeLogMessage(id, "A finalizado la antención del cliente");
 					writeLogMessage(id, "El cliente tiene todo en regla.");
@@ -835,7 +783,7 @@ void accionesEncargado()
 				}
 
 				pthread_mutex_lock(&colaClientes);
-				listaClientes[customer].atendido = 2;
+				listaClientes[cliente].atendido = 2;
 				pthread_mutex_unlock(&colaClientes);
 			}
 		}
