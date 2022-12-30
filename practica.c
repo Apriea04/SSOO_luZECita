@@ -37,8 +37,8 @@ struct Cliente
 
 struct Trabajador
 {
-	int id;				   // Número secuencial comenzando en 1 para cada trabajador
-	int clientesAtendidos; // Número clientes atendidos por el técnico
+	int id;					  // Número secuencial comenzando en 1 para cada trabajador
+	int numClientesAtendidos; // Número clientes atendidos por el técnico
 };
 
 // Listas de hilos trabajadores
@@ -513,7 +513,7 @@ int main()
 	for (i = 0; i < NTECNICOS; i++)
 	{
 		listaTecnicos[i].id = 0;
-		listaTecnicos[i].clientesAtendidos = 0;
+		listaTecnicos[i].numClientesAtendidos = 0;
 	}
 
 	// Inicialización de técnicos
@@ -536,7 +536,7 @@ int main()
 	for (i = 0; i < NRESPREPARACIONES; i++)
 	{
 		listaRespReparaciones[i].id = 0;
-		listaRespReparaciones[i].clientesAtendidos = 0;
+		listaRespReparaciones[i].numClientesAtendidos = 0;
 	}
 
 	// Inicialización de responsables de reparaciones
@@ -857,22 +857,72 @@ void accionesCliente(struct Cliente *cliente)
  * LLeva a cabo las funciones de un técnico o
  * responsable de reparaciones
  *
- * tipoTecnico (int): entero que representa si un trabajador
+ * tipoTrabajador (int): entero que representa si un trabajador
  * 	                  se encarga de la app o de la red
- * posTecnico (int): entero con la posición en la lista del trabajador
+ * posTrabajador (int): entero con la posición en la lista del trabajador
  */
-void accionesTecnico(int tipoTecnico, int posTecnico)
+void accionesTecnico(int tipoTrabajador, int posTrabajador)
 {
 	int posCliente;
+	int tipoCliente;
 
 	// Bucle en el que el trabajador va atendiendo a los clientes que le lleguen
 	do
 	{
+		// Comprobar si es necesario un descanso según el tipo
+		int numClientesAtendidos;
+		if (tipoTrabajador == 0)
+		{
+			// Técnico
+			pthread_mutex_lock(&mutexTrabajadores);
+			numClientesAtendidos = listaTecnicos[posTrabajador].numClientesAtendidos;
+			pthread_mutex_unlock(&mutexTrabajadores);
+
+			// El técnico descansa 5 segundos por cada 5 clientes
+			if (numClientesAtendidos % 5 == 0)
+			{
+				sleep(5);
+			}
+		}
+		else if (tipoTrabajador == 1)
+		{
+			// Responsable de reparaciones
+			pthread_mutex_lock(&mutexTrabajadores);
+			numClientesAtendidos = listaRespReparaciones[posTrabajador].numClientesAtendidos;
+			pthread_mutex_unlock(&mutexTrabajadores);
+
+			// El responsable de reparaciones descansa 6 segundos por cada 6 clientes
+			if (numClientesAtendidos % 6 == 0)
+			{
+				sleep(6);
+			}
+		}
+
 		// Obtener posición del cliente a atender según el tipo de trabajador
-		posCliente = obtenerPosicionProximoClienteSegunTipo(tipoTecnico);
+		posCliente = obtenerPosicionProximoClienteSegunTipo(tipoTrabajador);
+		// Obtener tipo del cliente en cuestión
+		pthread_mutex_lock(&colaClientes);
+		tipoCliente = listaClientes[posCliente].tipo;
+		pthread_mutex_unlock(&colaClientes);
 
 		// Atender al cliente
-		atenderCliente(tipoTecnico, posTecnico, posCliente);
+		atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente);
+
+		// Aumentar número de clientes atendidos
+		if (tipoTrabajador == 0)
+		{
+			// Aumentar número de clientes atendidos a técnico
+			pthread_mutex_lock(&mutexTrabajadores);
+			listaTecnicos[posTrabajador].numClientesAtendidos = listaTecnicos[posTrabajador].numClientesAtendidos + 1;
+			pthread_mutex_unlock(&mutexTrabajadores);
+		}
+		else if (tipoTrabajador == 1)
+		{
+			// Aumentar número de clientes atendidos a responsable de reparaciones
+			pthread_mutex_lock(&mutexTrabajadores);
+			listaRespReparaciones[posTrabajador].numClientesAtendidos = listaRespReparaciones[posTrabajador].numClientesAtendidos + 1;
+			pthread_mutex_unlock(&mutexTrabajadores);
+		}
 	} while (1);
 }
 
@@ -880,13 +930,20 @@ void accionesTecnico(int tipoTecnico, int posTecnico)
 void accionesEncargado()
 {
 	int posCliente;
+	int tipoCliente;
+
+	// Bucle en el que el encargado va atendiendo a los clientes que le lleguen
 	do
 	{
 		// Obtener el siguiente cliente a atender según las reglas establecidas
 		posCliente = obtenerPosicionProximoCliente();
+		// Obtener tipo del cliente en cuestión
+		pthread_mutex_lock(&colaClientes);
+		tipoCliente = listaClientes[posCliente].tipo;
+		pthread_mutex_unlock(&colaClientes);
 
-		// Atender cliente como encargado
-		atenderCliente(-1, 1, posCliente);
+		// Atender al cliente como encargado
+		atenderCliente(-1, 1, tipoCliente, posCliente);
 	} while (1);
 }
 
