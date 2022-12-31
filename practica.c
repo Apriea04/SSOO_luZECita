@@ -12,6 +12,7 @@
 #define NRESPREPARACIONES 2
 #define NENCARGADOS 1
 #define NTECDOMICILIARIA 1
+#define NSOLICDOMINECESARIAS 4 // Numero de solicitudes domciliarias necesarias para comenzar con esa atención
 
 // TODO: Crear variable para llevar a cabo salida controlada
 
@@ -68,7 +69,6 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador);
 void accionesEncargado();
 
 void accionesTecnicoDomiciliario();
-
 
 /**FUNCIONES*/
 
@@ -420,18 +420,23 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
  * Escribe en el puntero el identificador del próximo cliente que recibió atención domiciliaria y
  * establece la solicitud a 0 del cliente la solicitó.
  */
-void obtenerIDClienteAttDom(char *cadena){
+void obtenerIDClienteAttDom(char *cadena)
+{
 	int i, count;
 	count = 0;
 	i = 0;
-	while(i < NCLIENTES){
-		if(listaClientes[i].solicitud == 1){
+	while (i < NCLIENTES)
+	{
+		if (listaClientes[i].solicitud == 1)
+		{
 			sprintf(cadena, "clired_%d", listaClientes[i].id);
 			pthread_mutex_lock(&colaClientes);
 			listaClientes[i].solicitud = 0;
 			pthread_mutex_unlock(&colaClientes);
 			break;
-		} else{
+		}
+		else
+		{
 			i++;
 		}
 	}
@@ -489,14 +494,11 @@ void *AtencionDomiciliaria(void *arg)
 	free(arg);
 }
 
-void *ClienteApp(void *arg)
+void *Cliente(void *arg)
 {
-	printf("Cliente App\n");
-}
-
-void *ClienteRed(void *arg)
-{
-	printf("Cliente Red\n");
+	printf("Cliente nuevo\n");
+	struct Cliente punteroCliente = *(struct Cliente *)arg;
+	accionesCliente(&punteroCliente);
 }
 
 /**MAIN*/
@@ -678,19 +680,19 @@ int main()
 
 // GUILLERMO
 /**
- * @brief 
+ * @brief
  * Introduce un cliente en la cola de clientes cuando se recibe una señal.
  * Cuando aparece un cliente, lo introduce en la primera posición libre que encuentre (Cuando  id==0).
  * Si no hay posiciones libres, no se hace nada y se ignora el cliente.
- * 
- * @param tipo 
+ *
+ * @param tipo
  */
 void nuevoCliente(int tipo)
 {
 	pthread_mutex_lock(&colaClientes);
 	// Busca posición libre dentro del array (id=0)
 	int i = 0;
-	while (i < NCLIENTES-1)
+	while (i < NCLIENTES - 1)
 	{
 		if (listaClientes[i].id == 0)
 		{
@@ -710,20 +712,17 @@ void nuevoCliente(int tipo)
 			listaClientes[i].tipo = tipo;
 			listaClientes[i].solicitud = 0;
 			listaClientes[i].prioridad = calculaAleatorios(1, 10);
+			struct Cliente punteroCliente = listaClientes[i];
 
 			// Creamos un hilo cliente y lo inicializamos
 			pthread_t cliente;
 			char *id;
 
-			id = malloc(sizeof(char)*20); //Identificador único de cada cliente
+			id = malloc(sizeof(char) * 20); // Identificador único de cada cliente
 
 			// Inicializamos hilo cliente de tipo APP y escribimos el hecho en el log
 			if (listaClientes[i].tipo == 0)
 			{
-				if(pthread_create(&cliente, NULL, &ClienteApp, NULL)!=0){
-					perror("[ERROR] Error al introducir un nuevo cliente");
-					return -1;
-				}
 				sprintf(id, "cliapp_%d", listaClientes[i].id);
 				pthread_mutex_lock(&Fichero);
 				writeLogMessage(id, "Nuevo cliente de tipo APP ha entrado en la cola.");
@@ -733,16 +732,18 @@ void nuevoCliente(int tipo)
 			// Inicializamos hilo cliente de tipo RED y escribimos el hecho en el log
 			else
 			{
-				if(pthread_create(&cliente, NULL, &ClienteRed, NULL)!=0){
-					perror("[ERROR] Error al introducir un nuevo cliente");
-					return -1;
-				}
-
 				sprintf(id, "clired_%d", listaClientes[i].id);
 				pthread_mutex_lock(&Fichero);
 				writeLogMessage(id, "Nuevo cliente de tipo RED ha entrado en cola.");
 				pthread_mutex_unlock(&Fichero);
 			}
+
+			if (pthread_create(&cliente, NULL, &Cliente, &punteroCliente) != 0)
+			{
+				perror("[ERROR] Error al introducir un nuevo cliente");
+				return -1;
+			}
+
 			break; // El bucle termina cuando encuentra una posición libre
 		}
 		i++;
@@ -761,7 +762,7 @@ void accionesCliente(struct Cliente *cliente)
 	char *id, *msg;
 	int seVa = 0; // en principio, el cliente no se va.
 
-	id = malloc(sizeof(char)*20);
+	id = malloc(sizeof(char) * 20);
 
 	pthread_mutex_lock(&colaClientes); // TODO duda ¿Proteger?
 	int tipo = cliente->tipo;
@@ -864,11 +865,11 @@ void accionesCliente(struct Cliente *cliente)
 				sol = numSolicitudesDomicilio;
 				pthread_mutex_unlock(&solicitudes);
 
-				if (sol > 4)
+				if (sol > NSOLICDOMINECESARIAS)
 				{
 					sleep(3);
 				}
-			} while (sol > 4);
+			} while (sol > NSOLICDOMINECESARIAS);
 
 			// numSolicitudesDomicilio <= 4
 
@@ -882,7 +883,7 @@ void accionesCliente(struct Cliente *cliente)
 
 			pthread_mutex_lock(&solicitudes);
 			numSolicitudesDomicilio += 1;
-			if (numSolicitudesDomicilio == 4)
+			if (numSolicitudesDomicilio == NSOLICDOMINECESARIAS)
 			{
 				// Damos el aviso:
 				pthread_mutex_unlock(&solicitudes);
@@ -1021,15 +1022,17 @@ void accionesTecnicoDomiciliario()
 	char *id, *cadena1, *cadena2;
 	int i;
 
-	id = malloc(sizeof(char)*20);
-	cadena1 = malloc(sizeof(char)*30);
-	cadena2 = malloc(sizeof(char)*20);
+	id = malloc(sizeof(char) * 20);
+	cadena1 = malloc(sizeof(char) * 30);
+	cadena2 = malloc(sizeof(char) * 20);
 
 	sprintf(id, "tecnico_dom");
-	do{
+	do
+	{
 		// Comprobamos que el número de solicitudes domiciliarias. Bloqueamos si es menor que 4
 		pthread_mutex_lock(&solicitudes);
-		if(numSolicitudesDomicilio<4){
+		while (numSolicitudesDomicilio < NSOLICDOMINECESARIAS)
+		{
 			// Espera a que el número de solicitudes sea 4
 			pthread_cond_wait(&condSolicitudesDomicilio, &solicitudes);
 		}
@@ -1040,22 +1043,22 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_unlock(&Fichero);
 
 		// Atendemos cada solicitud
-		for(i = 0; i < numSolicitudesDomicilio; i++){
+		for (i = 0; i < NSOLICDOMINECESARIAS; i++)
+		{
 			sleep(1);
-			pthread_mutex_lock(&Fichero);
 			sprintf(cadena1, "Atendido cliente ");
 			obtenerIDClienteAttDom(cadena2);
 			strcat(cadena1, cadena2);
+
+			pthread_mutex_lock(&Fichero);
 			writeLogMessage(id, cadena1);
 			pthread_mutex_unlock(&Fichero);
-
 		}
 
 		// Reseteamos el número de solicitudes a domicilio. Se finaliza la atención domiciliaria.
 		pthread_mutex_lock(&solicitudes);
 		numSolicitudesDomicilio = 0;
 		pthread_mutex_unlock(&solicitudes);
-
 
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Atención domiciliaria finalizada.\n");
@@ -1066,6 +1069,5 @@ void accionesTecnicoDomiciliario()
 		pthread_cond_signal(&condSolicitudesDomicilio);
 		pthread_mutex_unlock(&solicitudes);
 
-	} while(1);
-	
+	} while (1);
 }
