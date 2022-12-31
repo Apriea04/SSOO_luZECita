@@ -448,13 +448,11 @@ void obtenerIDClienteAttDom(char *cadena)
 
 void handlerClienteApp(int sig)
 {
-	printf("Hola SIGUSR1\n");
 	nuevoCliente(0);
 }
 
 void handlerClienteRed(int sig)
 {
-	printf("Hola SIGUSR2\n");
 	nuevoCliente(1);
 }
 
@@ -469,6 +467,7 @@ void handlerTerminar(int sig)
 void *Tecnico(void *arg)
 {
 	int index = *(int *)arg;
+	accionesTecnico(0, index);
 	printf("Técnico %d\n", index);
 	free(arg);
 }
@@ -476,6 +475,7 @@ void *Tecnico(void *arg)
 void *Responsable(void *arg)
 {
 	int index = *(int *)arg;
+	accionesTecnico(1,index);
 	printf("Responsable %d\n", index);
 	free(arg);
 }
@@ -483,6 +483,7 @@ void *Responsable(void *arg)
 void *Encargado(void *arg)
 {
 	int index = *(int *)arg;
+	accionesEncargado();
 	printf("Encargado %d\n", index);
 	free(arg);
 }
@@ -490,6 +491,7 @@ void *Encargado(void *arg)
 void *AtencionDomiciliaria(void *arg)
 {
 	int index = *(int *)arg;
+	accionesTecnicoDomiciliario();
 	printf("Atención domiciliaria %d\n", index);
 	free(arg);
 }
