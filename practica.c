@@ -999,6 +999,9 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 }
 
 // MARIO
+/**
+ * LLeva a cabo las funciones de un encargado
+*/
 void accionesEncargado()
 {
 	int posCliente;
