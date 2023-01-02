@@ -62,7 +62,7 @@ FILE *logFile;
 /**DECLARACIÓN DE FUNCIONES PRINCIPALES*/
 void nuevoCliente(int tipo);
 
-void accionesCliente(struct Cliente *cliente);
+void accionesCliente(int posicion);
 
 void accionesTecnico(int tipoTrabajador, int posTrabajador);
 
@@ -149,14 +149,14 @@ int obtenerPosicion(struct Cliente *buscado)
 /**
  * Libera el cliente del vector de clientes.
  */
-void liberaCliente(struct Cliente *cliente)
+void liberaCliente(int posicion)
 {
 	pthread_mutex_lock(&colaClientes);
-	cliente->id = 0;
-	cliente->atendido = 0;
-	cliente->prioridad = 0;
-	cliente->solicitud = 0;
-	cliente->tipo = 0;
+	listaClientes[posicion].id = 0;
+	listaClientes[posicion].atendido = 0;
+	listaClientes[posicion].prioridad = 0;
+	listaClientes[posicion].solicitud = 0;
+	listaClientes[posicion].tipo = 0;
 	pthread_mutex_unlock(&colaClientes);
 }
 
@@ -308,6 +308,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		pthread_mutex_unlock(&colaClientes);
 
 		char *idTrabajador, *idCliente, *msg;
+		idTrabajador = malloc(sizeof(char)*20);
+		idCliente = malloc(sizeof(char)*20);
+		msg = malloc(sizeof(char)*100);
 
 		// Definir id del trabajador según su tipo
 		int numID = 1;
@@ -340,7 +343,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 			pthread_mutex_lock(&colaClientes);
 			numID = listaClientes[posCliente].id;
 			pthread_mutex_unlock(&colaClientes);
-			sprintf(idCliente, "clired_%d", numID);
+			sprintf(idCliente, "cliapp_%d", numID);
 		}
 		else
 		{
@@ -348,7 +351,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 			pthread_mutex_lock(&colaClientes);
 			numID = listaClientes[posCliente].id;
 			pthread_mutex_unlock(&colaClientes);
-			sprintf(idCliente, "clieapp_%d", numID);
+			sprintf(idCliente, "clired_%d", numID);
 		}
 
 		// Indicamos que comienza el proceso de atención en el log
@@ -475,7 +478,7 @@ void *Tecnico(void *arg)
 void *Responsable(void *arg)
 {
 	int index = *(int *)arg;
-	accionesTecnico(1,index);
+	accionesTecnico(1, index);
 	printf("Responsable %d\n", index);
 	free(arg);
 }
@@ -499,8 +502,9 @@ void *AtencionDomiciliaria(void *arg)
 void *Cliente(void *arg)
 {
 	printf("Cliente nuevo\n");
-	struct Cliente punteroCliente = *(struct Cliente *)arg;
-	accionesCliente(&punteroCliente);
+	int valor = *(int *)arg;
+	accionesCliente(valor);
+	free(arg);
 }
 
 /**MAIN*/
@@ -627,6 +631,26 @@ int main()
 
 	while (1)
 	{
+		sig.sa_handler = handlerClienteApp;
+		if (sigaction(SIGUSR1, &sig, NULL) == -1)
+		{
+			perror("[ERROR] Error en la llamada a sigaction.");
+			exit(-1);
+		}
+
+		sig.sa_handler = handlerClienteRed;
+		if (sigaction(SIGUSR2, &sig, NULL) == -1)
+		{
+			perror("[ERROR] Error en la llamada a sigaction.");
+			exit(-1);
+		}
+
+		sig.sa_handler = handlerTerminar;
+		if (sigaction(SIGINT, &sig, NULL) == -1)
+		{
+			perror("[ERROR] Error en la llamada a sigaction.");
+			exit(-1);
+		}
 		pause();
 	}
 
@@ -682,7 +706,6 @@ int main()
 
 // GUILLERMO
 /**
- * @brief
  * Introduce un cliente en la cola de clientes cuando se recibe una señal.
  * Cuando aparece un cliente, lo introduce en la primera posición libre que encuentre (Cuando  id==0).
  * Si no hay posiciones libres, no se hace nada y se ignora el cliente.
@@ -694,7 +717,7 @@ void nuevoCliente(int tipo)
 	pthread_mutex_lock(&colaClientes);
 	// Busca posición libre dentro del array (id=0)
 	int i = 0;
-	while (i < NCLIENTES - 1)
+	while (i < NCLIENTES)
 	{
 		if (listaClientes[i].id == 0)
 		{
@@ -714,7 +737,8 @@ void nuevoCliente(int tipo)
 			listaClientes[i].tipo = tipo;
 			listaClientes[i].solicitud = 0;
 			listaClientes[i].prioridad = calculaAleatorios(1, 10);
-			struct Cliente punteroCliente = listaClientes[i];
+			struct Cliente *punteroCliente = malloc(sizeof(struct Cliente));
+			*(punteroCliente) = listaClientes[i];
 
 			// Creamos un hilo cliente y lo inicializamos
 			pthread_t cliente;
@@ -729,7 +753,6 @@ void nuevoCliente(int tipo)
 				pthread_mutex_lock(&Fichero);
 				writeLogMessage(id, "Nuevo cliente de tipo APP ha entrado en la cola.");
 				pthread_mutex_unlock(&Fichero);
-				printf("Nuevo cliente APP ha entrado en la cola\n");
 			}
 			// Inicializamos hilo cliente de tipo RED y escribimos el hecho en el log
 			else
@@ -740,10 +763,9 @@ void nuevoCliente(int tipo)
 				pthread_mutex_unlock(&Fichero);
 			}
 
-			if (pthread_create(&cliente, NULL, &Cliente, &punteroCliente) != 0)
+			if (pthread_create(&cliente, NULL, &Cliente, &i) != 0)
 			{
 				perror("[ERROR] Error al introducir un nuevo cliente");
-				return -1;
 			}
 
 			break; // El bucle termina cuando encuentra una posición libre
@@ -759,27 +781,31 @@ void nuevoCliente(int tipo)
  * Recibe un puntero a su estructura cliente de la cola de clientes
  * @param cliente
  */
-void accionesCliente(struct Cliente *cliente)
+void accionesCliente(int posicion)
 {
+	struct Cliente *cliente = malloc(sizeof(struct Cliente));
+	*cliente = listaClientes[posicion];
+
 	char *id, *msg;
 	int seVa = 0; // en principio, el cliente no se va.
 
 	id = malloc(sizeof(char) * 20);
 
 	pthread_mutex_lock(&colaClientes); // TODO duda ¿Proteger?
-	int tipo = cliente->tipo;
+	int tipo = listaClientes[posicion].tipo;
 	pthread_mutex_unlock(&colaClientes);
 
 	if (tipo == 0)
 	{
 		// Cliente app
-		sprintf(id, "clieapp_%d", cliente->id);
+		sprintf(id, "cliapp_%d", cliente->id);
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Cliente de tipo APP acaba de entrar al sistema.");
 		pthread_mutex_unlock(&Fichero);
 	}
 	else
 	{
+		// Cliente red
 		sprintf(id, "clired_%d", cliente->id);
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Cliente de tipo RED acaba de entrar al sistema.");
@@ -793,39 +819,41 @@ void accionesCliente(struct Cliente *cliente)
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Encontró la aplicación difícil y se fue.");
 		pthread_mutex_unlock(&Fichero);
+		liberaCliente(posicion);
+		pthread_exit(0);
 	}
 
 	int atendido = 0; // En principio piensa que no está siendo atendido
 	int tiempoEsperando = 0;
 	do // Mientras que no sea atendido, comprueba cada 2 segundos
 	{
-		if (seVa)
+		if (seVa == 1)
 		{
 			// Libero su espacio de la cola
-			liberaCliente(cliente);
-
+			liberaCliente(posicion);
 			// Se va
 			pthread_exit(0);
 		}
 		// ¿Estoy atendido?
 		pthread_mutex_lock(&colaClientes);
-		atendido = cliente->atendido;
+		atendido = listaClientes[posicion].atendido;
 		pthread_mutex_unlock(&colaClientes);
 
-		if (!atendido)
+		if (atendido == 0)
 		{
+			int porcentaje = calculaAleatorios(0, 100);
+
 			// ¿Se cansó de esperar?
-			if (tiempoEsperando % 8 == 0 && calculaAleatorios(0, 100) <= 20)
+			if (tiempoEsperando >= 8 && porcentaje <= 20)
 			{
 				sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
-
 				pthread_mutex_lock(&Fichero);
 				writeLogMessage(id, msg);
 				pthread_mutex_unlock(&Fichero);
 
 				seVa = 1;
 			}
-			else if (calculaAleatorios(0, 100) <= 5)
+			else if (porcentaje > 70 && calculaAleatorios(0, 100) <= 5)
 			{
 				// Perdió la conexión a internet
 				pthread_mutex_lock(&Fichero);
@@ -838,7 +866,7 @@ void accionesCliente(struct Cliente *cliente)
 			sleep(2);
 			tiempoEsperando += 2;
 		}
-	} while (!atendido);
+	} while (atendido == 0);
 
 	// Ahora ya esta siendo atendido
 
@@ -848,7 +876,7 @@ void accionesCliente(struct Cliente *cliente)
 		sleep(2);
 
 		pthread_mutex_lock(&colaClientes);
-		atendido = cliente->atendido;
+		atendido = listaClientes[posicion].atendido;
 		pthread_mutex_unlock(&colaClientes);
 	}
 
@@ -880,7 +908,7 @@ void accionesCliente(struct Cliente *cliente)
 			pthread_mutex_unlock(&Fichero);
 
 			pthread_mutex_lock(&colaClientes);
-			cliente->solicitud = 1;
+			listaClientes[posicion].solicitud = 1;
 			pthread_mutex_unlock(&colaClientes);
 
 			pthread_mutex_lock(&solicitudes);
@@ -897,14 +925,14 @@ void accionesCliente(struct Cliente *cliente)
 			}
 
 			pthread_mutex_lock(&colaClientes);
-			int estadoSolicitud = cliente->solicitud;
+			int estadoSolicitud = listaClientes[posicion].solicitud;
 			pthread_mutex_unlock(&colaClientes);
 
 			while (estadoSolicitud != 0)
 			{
 				pthread_cond_wait(&condSolicitudesDomicilio, &solicitudes);
 				pthread_mutex_lock(&colaClientes);
-				int estadoSolicitud = cliente->solicitud;
+				int estadoSolicitud = listaClientes[posicion].solicitud;
 				pthread_mutex_unlock(&colaClientes);
 			}
 
@@ -915,7 +943,7 @@ void accionesCliente(struct Cliente *cliente)
 	}
 
 	// El cliente se va
-	liberaCliente(cliente);
+	liberaCliente(posicion);
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Se va tras haber sido atendido");
 	pthread_mutex_unlock(&Fichero);
@@ -937,6 +965,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 {
 	int posCliente;
 	int tipoCliente;
+	int atendido;
 
 	// Bucle en el que el trabajador va atendiendo a los clientes que le lleguen
 	do
@@ -975,10 +1004,15 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 		// Obtener tipo del cliente en cuestión
 		pthread_mutex_lock(&colaClientes);
 		tipoCliente = listaClientes[posCliente].tipo;
+		atendido = listaClientes[posCliente].atendido;
 		pthread_mutex_unlock(&colaClientes);
 
 		// Atender al cliente
-		atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente);
+		if(atendido == 0)
+		{
+			atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente);
+		}
+		
 
 		// Aumentar número de clientes atendidos
 		if (tipoTrabajador == 0)
@@ -1001,11 +1035,12 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 // MARIO
 /**
  * LLeva a cabo las funciones de un encargado
-*/
+ */
 void accionesEncargado()
 {
 	int posCliente;
-	int tipoCliente;
+	int tipoCliente; 
+	int atendido;
 
 	// Bucle en el que el encargado va atendiendo a los clientes que le lleguen
 	do
@@ -1015,10 +1050,14 @@ void accionesEncargado()
 		// Obtener tipo del cliente en cuestión
 		pthread_mutex_lock(&colaClientes);
 		tipoCliente = listaClientes[posCliente].tipo;
+		atendido = listaClientes[posCliente].atendido;
 		pthread_mutex_unlock(&colaClientes);
 
 		// Atender al cliente como encargado
-		atenderCliente(-1, 1, tipoCliente, posCliente);
+		if(atendido==0){
+			atenderCliente(-1, 1, tipoCliente, posCliente);
+		}
+		
 	} while (1);
 }
 
