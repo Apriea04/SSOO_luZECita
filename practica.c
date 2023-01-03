@@ -19,7 +19,7 @@
 /**DECLARACIONES GLOBALES*/
 
 // Mutex
-pthread_mutex_t Fichero, colaClientes, mutexTrabajadores, solicitudes;
+pthread_mutex_t Fichero, colaClientes, mutexTecnicos, mutexResponsables, solicitudes;
 
 // Variables condición
 pthread_cond_t condSolicitudesDomicilio;
@@ -39,6 +39,7 @@ struct Cliente
 struct Trabajador
 {
 	int id;					  // Número secuencial comenzando en 1 para cada trabajador
+	int disponible;			  // 0 si no está disponible, 1 si está disponible
 	int numClientesAtendidos; // Número clientes atendidos por el técnico
 };
 
@@ -115,35 +116,6 @@ int NClientesRed()
 	}
 
 	return nred;
-}
-
-/**
- * Devuelve la posición de un cliente en la lista de clientes.
- * La primera posición es la 0
- * Precondición: el cliente debe estar en la lista
- */
-int obtenerPosicion(struct Cliente *buscado)
-{
-	int i = 0, encontrado = 0;
-	pthread_mutex_lock(&colaClientes);
-	while (encontrado == 0 && i < NCLIENTES)
-	{
-		// Un cliente es identificado por su id y tipo.
-		if (listaClientes[i].id == buscado->id && listaClientes[i].tipo == buscado->tipo)
-		{
-			encontrado = 1;
-		}
-		i++;
-	}
-	pthread_mutex_unlock(&colaClientes);
-	if (encontrado)
-	{
-		return i;
-	}
-	else
-	{
-		return -1;
-	}
 }
 
 /**
@@ -241,15 +213,10 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 	for (int i = 0; i < NCLIENTES; i++)
 	{
 		cambiarCliente = 0;
-		if (listaClientes[i].id != 0)
+		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
 		{
-			// Es un cliente, no está vacío
-			if (listaClientes[i].tipo != tipoCliente)
-			{
-				// El cliente actual no tiene el tipo de cliente buscado, lo omitimos
-				continue;
-			}
-			else
+			// Es un cliente, no está vacío y puede ser atendido.
+			if (listaClientes[i].tipo == tipoCliente)
 			{
 				// Tenemos dos clientes del mismo tipo
 				if (listaClientes[i].prioridad > prioridadProxCliente)
@@ -308,9 +275,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		pthread_mutex_unlock(&colaClientes);
 
 		char *idTrabajador, *idCliente, *msg;
-		idTrabajador = malloc(sizeof(char)*20);
-		idCliente = malloc(sizeof(char)*20);
-		msg = malloc(sizeof(char)*100);
+		idTrabajador = malloc(sizeof(char) * 20);
+		idCliente = malloc(sizeof(char) * 20);
+		msg = malloc(sizeof(char) * 100);
 
 		// Definir id del trabajador según su tipo
 		int numID = 1;
@@ -322,17 +289,17 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		else if (tipoTrabajador == 0)
 		{
 			// Definir id de técnico
-			pthread_mutex_lock(&mutexTrabajadores);
+			pthread_mutex_lock(&mutexTecnicos);
 			numID = listaTecnicos[posTrabajador].id;
-			pthread_mutex_unlock(&mutexTrabajadores);
+			pthread_mutex_unlock(&mutexTecnicos);
 			sprintf(idTrabajador, "tecnico_%d", numID);
 		}
 		else if (tipoTrabajador == 1)
 		{
 			// Definir id de responsable de reparaciones
-			pthread_mutex_lock(&mutexTrabajadores);
+			pthread_mutex_lock(&mutexResponsables);
 			numID = listaRespReparaciones[posTrabajador].id;
-			pthread_mutex_unlock(&mutexTrabajadores);
+			pthread_mutex_unlock(&mutexResponsables);
 			sprintf(idTrabajador, "resprep_%d", numID);
 		}
 
@@ -539,7 +506,8 @@ int main()
 	// Inicicialización de mutex
 	pthread_mutex_init(&Fichero, NULL);
 	pthread_mutex_init(&colaClientes, NULL);
-	pthread_mutex_init(&mutexTrabajadores, NULL);
+	pthread_mutex_init(&mutexTecnicos, NULL);
+	pthread_mutex_init(&mutexResponsables, NULL);
 	pthread_mutex_init(&solicitudes, NULL);
 
 	// Inicialización de variables condición
@@ -698,7 +666,8 @@ int main()
 	// Eliminar los mutex al salir
 	pthread_mutex_destroy(&Fichero);
 	pthread_mutex_destroy(&colaClientes);
-	pthread_mutex_destroy(&mutexTrabajadores);
+	pthread_mutex_destroy(&mutexTecnicos);
+	pthread_mutex_destroy(&mutexResponsables);
 	pthread_mutex_destroy(&solicitudes);
 
 	return 0;
@@ -714,9 +683,9 @@ int main()
  */
 void nuevoCliente(int tipo)
 {
+	int i = 0;
 	pthread_mutex_lock(&colaClientes);
 	// Busca posición libre dentro del array (id=0)
-	int i = 0;
 	while (i < NCLIENTES)
 	{
 		if (listaClientes[i].id == 0)
@@ -965,7 +934,6 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 {
 	int posCliente;
 	int tipoCliente;
-	int atendido;
 
 	// Bucle en el que el trabajador va atendiendo a los clientes que le lleguen
 	do
@@ -975,9 +943,9 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 		if (tipoTrabajador == 0)
 		{
 			// Técnico
-			pthread_mutex_lock(&mutexTrabajadores);
+			pthread_mutex_lock(&mutexTecnicos);
 			numClientesAtendidos = listaTecnicos[posTrabajador].numClientesAtendidos;
-			pthread_mutex_unlock(&mutexTrabajadores);
+			pthread_mutex_unlock(&mutexTecnicos);
 
 			// El técnico descansa 5 segundos por cada 5 clientes
 			if (numClientesAtendidos % 5 == 0)
@@ -988,9 +956,9 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 		else if (tipoTrabajador == 1)
 		{
 			// Responsable de reparaciones
-			pthread_mutex_lock(&mutexTrabajadores);
+			pthread_mutex_lock(&mutexResponsables);
 			numClientesAtendidos = listaRespReparaciones[posTrabajador].numClientesAtendidos;
-			pthread_mutex_unlock(&mutexTrabajadores);
+			pthread_mutex_unlock(&mutexResponsables);
 
 			// El responsable de reparaciones descansa 6 segundos por cada 6 clientes
 			if (numClientesAtendidos % 6 == 0)
@@ -1004,30 +972,26 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 		// Obtener tipo del cliente en cuestión
 		pthread_mutex_lock(&colaClientes);
 		tipoCliente = listaClientes[posCliente].tipo;
-		atendido = listaClientes[posCliente].atendido;
 		pthread_mutex_unlock(&colaClientes);
 
 		// Atender al cliente
-		if(atendido == 0)
-		{
-			atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente);
-		}
-		
+
+		atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente);
 
 		// Aumentar número de clientes atendidos
 		if (tipoTrabajador == 0)
 		{
 			// Aumentar número de clientes atendidos a técnico
-			pthread_mutex_lock(&mutexTrabajadores);
+			pthread_mutex_lock(&mutexTecnicos);
 			listaTecnicos[posTrabajador].numClientesAtendidos = listaTecnicos[posTrabajador].numClientesAtendidos + 1;
-			pthread_mutex_unlock(&mutexTrabajadores);
+			pthread_mutex_unlock(&mutexTecnicos);
 		}
 		else if (tipoTrabajador == 1)
 		{
 			// Aumentar número de clientes atendidos a responsable de reparaciones
-			pthread_mutex_lock(&mutexTrabajadores);
+			pthread_mutex_lock(&mutexResponsables);
 			listaRespReparaciones[posTrabajador].numClientesAtendidos = listaRespReparaciones[posTrabajador].numClientesAtendidos + 1;
-			pthread_mutex_unlock(&mutexTrabajadores);
+			pthread_mutex_unlock(&mutexResponsables);
 		}
 	} while (1);
 }
@@ -1039,8 +1003,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 void accionesEncargado()
 {
 	int posCliente;
-	int tipoCliente; 
-	int atendido;
+	int tipoCliente;
 
 	// Bucle en el que el encargado va atendiendo a los clientes que le lleguen
 	do
@@ -1050,14 +1013,11 @@ void accionesEncargado()
 		// Obtener tipo del cliente en cuestión
 		pthread_mutex_lock(&colaClientes);
 		tipoCliente = listaClientes[posCliente].tipo;
-		atendido = listaClientes[posCliente].atendido;
 		pthread_mutex_unlock(&colaClientes);
 
 		// Atender al cliente como encargado
-		if(atendido==0){
-			atenderCliente(-1, 1, tipoCliente, posCliente);
-		}
-		
+		atenderCliente(-1, 1, tipoCliente, posCliente);
+
 	} while (1);
 }
 
