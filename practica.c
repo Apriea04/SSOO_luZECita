@@ -414,6 +414,7 @@ void handlerClienteRed(int sig)
 void handlerTerminar(int sig)
 {
 	printf("Hola SIGINT\n");
+	printf("Total de clientes: %d\n", contadorApp + contadorRed);
 	exit(0); // ESTO SOBRA, ES PARA SALIR POR AHORA
 }
 
@@ -529,7 +530,7 @@ int main()
 		listaTecnicos[i].id = i + 1;
 
 		int *index = malloc(sizeof(int));
-		*index = i + 1;
+		*index = i;
 		if (pthread_create(&tecnicos[i], NULL, &Tecnico, index) != 0)
 		{
 			perror("[ERROR] Error al crear hilo de técnico.");
@@ -553,7 +554,7 @@ int main()
 		listaRespReparaciones[i].id = i + 1;
 
 		int *index = malloc(sizeof(int));
-		*index = i + 1;
+		*index = i;
 		if (pthread_create(&respReparaciones[i], NULL, &Responsable, index) != 0)
 		{
 			perror("[ERROR] Error al crear hilo de responsable de reparaciones.");
