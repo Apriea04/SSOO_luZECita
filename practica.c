@@ -146,13 +146,12 @@ int obtenerPosicionProximoCliente()
 
 	int cambiarCliente = 0;
 
-	pthread_mutex_lock(&colaClientes);
 	for (int i = 0; i < NCLIENTES; i++)
 	{
 		cambiarCliente = 0;
-		if (listaClientes[i].id != 0)
+		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
 		{
-			// Es un cliente, no está vacío
+			// Es un cliente, no está vacío y puede ser atendido.
 			if (listaClientes[i].tipo == 1 && tipoProxCliente == 0)
 			{
 				// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
@@ -189,7 +188,6 @@ int obtenerPosicionProximoCliente()
 			idProxCliente = listaClientes[i].id;
 		}
 	}
-	pthread_mutex_unlock(&colaClientes);
 
 	return posProxCliente;
 }
@@ -209,7 +207,6 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 
 	int cambiarCliente = 0;
 
-	pthread_mutex_lock(&colaClientes);
 	for (int i = 0; i < NCLIENTES; i++)
 	{
 		cambiarCliente = 0;
@@ -245,7 +242,6 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 			idProxCliente = listaClientes[i].id;
 		}
 	}
-	pthread_mutex_unlock(&colaClientes);
 
 	return posProxCliente;
 }
@@ -260,8 +256,6 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
  */
 void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
 {
-	// TODO: Agregar mensajes de técnicos a los logs usando tipoTecnico y posTecnico y aumentar clientes atendidos
-
 	if (posCliente == -1)
 	{
 		// No se ha encontrado un cliente al que atender, esperamos 2 segundos
@@ -269,11 +263,6 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 	}
 	else
 	{
-		// Marcar al cliente como en proceso de atención
-		pthread_mutex_lock(&colaClientes);
-		listaClientes[posCliente].atendido = 1;
-		pthread_mutex_unlock(&colaClientes);
-
 		char *idTrabajador, *idCliente, *msg;
 		idTrabajador = malloc(sizeof(char) * 20);
 		idCliente = malloc(sizeof(char) * 20);
@@ -307,17 +296,13 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		if (tipoCliente == 0)
 		{
 			// Definir id de cliente de red
-			pthread_mutex_lock(&colaClientes);
 			numID = listaClientes[posCliente].id;
-			pthread_mutex_unlock(&colaClientes);
 			sprintf(idCliente, "cliapp_%d", numID);
 		}
 		else
 		{
 			// Definir id de cliente de app
-			pthread_mutex_lock(&colaClientes);
 			numID = listaClientes[posCliente].id;
-			pthread_mutex_unlock(&colaClientes);
 			sprintf(idCliente, "clired_%d", numID);
 		}
 
@@ -437,16 +422,16 @@ void handlerTerminar(int sig)
 void *Tecnico(void *arg)
 {
 	int index = *(int *)arg;
-	accionesTecnico(0, index);
 	printf("Técnico %d\n", index);
+	accionesTecnico(0, index);
 	free(arg);
 }
 
 void *Responsable(void *arg)
 {
 	int index = *(int *)arg;
-	accionesTecnico(1, index);
 	printf("Responsable %d\n", index);
+	accionesTecnico(1, index);
 	free(arg);
 }
 
@@ -469,8 +454,8 @@ void *AtencionDomiciliaria(void *arg)
 void *Cliente(void *arg)
 {
 	printf("Cliente nuevo\n");
-	int valor = *(int *)arg;
-	accionesCliente(valor);
+	int index = *(int *)arg;
+	accionesCliente(index);
 	free(arg);
 }
 
@@ -532,12 +517,17 @@ int main()
 	for (i = 0; i < NTECNICOS; i++)
 	{
 		listaTecnicos[i].id = 0;
+		// Por defecto disponible
+		listaTecnicos[i].disponible = 1;
 		listaTecnicos[i].numClientesAtendidos = 0;
 	}
 
 	// Inicialización de técnicos
 	for (i = 0; i < NTECNICOS; i++)
 	{
+		// Agregar a lista de técnicos
+		listaTecnicos[i].id = i + 1;
+
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
 		if (pthread_create(&tecnicos[i], NULL, &Tecnico, index) != 0)
@@ -545,9 +535,6 @@ int main()
 			perror("[ERROR] Error al crear hilo de técnico.");
 			return -1;
 		}
-
-		// Agregar a lista de técnicos
-		listaTecnicos[i].id = i + 1;
 	}
 
 	// Inicialización de lista de reponsables de reparaciones
@@ -555,12 +542,16 @@ int main()
 	for (i = 0; i < NRESPREPARACIONES; i++)
 	{
 		listaRespReparaciones[i].id = 0;
+		listaRespReparaciones[i].disponible = 1;
 		listaRespReparaciones[i].numClientesAtendidos = 0;
 	}
 
 	// Inicialización de responsables de reparaciones
 	for (i = 0; i < NRESPREPARACIONES; i++)
 	{
+		// Agregar a lista de responsables de reparaciones
+		listaRespReparaciones[i].id = i + 1;
+
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
 		if (pthread_create(&respReparaciones[i], NULL, &Responsable, index) != 0)
@@ -568,9 +559,6 @@ int main()
 			perror("[ERROR] Error al crear hilo de responsable de reparaciones.");
 			return -1;
 		}
-
-		// Agregar a lista de responsables de reparaciones
-		listaTecnicos[i].id = i + 1;
 	}
 
 	// Inicialización de encargados
@@ -968,14 +956,15 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 		}
 
 		// Obtener posición del cliente a atender según el tipo de trabajador
+		pthread_mutex_lock(&colaClientes);
 		posCliente = obtenerPosicionProximoClienteSegunTipo(tipoTrabajador);
 		// Obtener tipo del cliente en cuestión
-		pthread_mutex_lock(&colaClientes);
 		tipoCliente = listaClientes[posCliente].tipo;
+		// El cliente pasa a estar en proceso de ser atendido
+		listaClientes[posCliente].atendido = 1;
 		pthread_mutex_unlock(&colaClientes);
 
 		// Atender al cliente
-
 		atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente);
 
 		// Aumentar número de clientes atendidos
@@ -1008,11 +997,13 @@ void accionesEncargado()
 	// Bucle en el que el encargado va atendiendo a los clientes que le lleguen
 	do
 	{
-		// Obtener el siguiente cliente a atender según las reglas establecidas
+		// Obtener posición del cliente a atender según el tipo de trabajador
+		pthread_mutex_lock(&colaClientes);
 		posCliente = obtenerPosicionProximoCliente();
 		// Obtener tipo del cliente en cuestión
-		pthread_mutex_lock(&colaClientes);
 		tipoCliente = listaClientes[posCliente].tipo;
+		// El cliente pasa a estar en proceso de ser atendido
+		listaClientes[posCliente].atendido = 1;
 		pthread_mutex_unlock(&colaClientes);
 
 		// Atender al cliente como encargado
