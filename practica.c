@@ -464,6 +464,11 @@ void *Cliente(void *arg)
 
 int main()
 {
+	// Limpiar log
+	logFile = fopen("registroTiempos.log", "w");
+	fclose(logFile);
+
+	// Definir manejadoras para señales
 	struct sigaction sig;
 	int i;
 	sig.sa_handler = handlerClienteApp;
