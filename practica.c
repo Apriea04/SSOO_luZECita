@@ -14,7 +14,6 @@
 #define NTECDOMICILIARIA 1
 #define NSOLICDOMINECESARIAS 4 // Numero de solicitudes domciliarias necesarias para comenzar con esa atención
 
-// TODO: Crear variable para llevar a cabo salida controlada
 
 /**DECLARACIONES GLOBALES*/
 
@@ -26,6 +25,12 @@ pthread_cond_t condSolicitudesDomicilio;
 
 // Contadores
 int contadorApp, contadorRed, numSolicitudesDomicilio;
+
+// Variable para llevar a cabo la salida controlada
+int finalizar;
+
+// Sigaction
+struct sigaction sig;
 
 struct Cliente
 {
@@ -74,19 +79,20 @@ void nuevoCliente(int tipo);
 
 // ÁLVARO
 /**
- * Recibe un puntero a su estructura cliente de la cola de clientes
- * @param cliente
+ * Recibe un puntero a su estructura cliente de la cola de clientes.
+ * posicion (int): valor entero que indica la posición de un cliente en el array listaClientes (struct[]).
+ * @param posicion
  */
 void accionesCliente(int posicion);
 
 // DANIEL
 /**
  * LLeva a cabo las funciones de un técnico o
- * responsable de reparaciones
+ * responsable de reparaciones.
  *
  * tipoTrabajador (int): entero que representa si un trabajador
- * 	                  se encarga de la app o de la red
- * posTrabajador (int): entero con la posición en la lista del trabajador
+ * 	                  se encarga de la app o de la red.
+ * posTrabajador (int): entero con la posición en la lista del trabajador.
  * @param tipoTrabajador
  * @param posTrabajador
  */
@@ -94,7 +100,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador);
 
 // MARIO
 /**
- * LLeva a cabo las funciones de un encargado
+ * LLeva a cabo las funciones de un encargado.
  */
 void accionesEncargado();
 
@@ -105,29 +111,39 @@ void accionesTecnicoDomiciliario();
 /**
  * Escribe un mensaje nuevo en el fichero registroTiempos.log.
  * El mensaje estará compuesto por la fecha y la hora, el identificador del hilo que lo ejecuta y el mensaje.
+ * id (*char): puntero que contiene la cadena de caracteres con el identificador de un hilo.
+ * msg (*char): puntero que contiene la cadena de caracteres con el mensaje a escribir en el log.
+ * @param id
+ * @param msg
  */
 void writeLogMessage(char *id, char *msg);
 
 /**
  * Calcula un número aleatorio entre el mínimo y el máximo espeficicados.
  * Ambos números se incluyen en el cálculo.
+ * min (int): mínimo valor del intervalo.
+ * max (int): máximo valor del intervalo.
+ * @param min
+ * @param max
  */
 int calculaAleatorios(int min, int max);
 
 // TODO: ESTA FUNCIÓN NO SE ESTÁ UTILIZANDO
 /**
- * Devuelve el número de clientes de tipo red
+ * Devuelve el número de clientes de tipo red.
  */
 int NClientesRed();
 
 /**
  * Libera el cliente del vector de clientes.
+ * posicion (int): valor entero que indica la posición de un cliente en el array listaClientes (struct[]).
+ * @param posicion
  */
 void liberaCliente(int posicion);
 
 /**
  * Obtiene al próximo cliente que debe ser atendido,
- * tendiendo en cuenta su tipo, prioridad y tiempo esperado.
+ * teniendo en cuenta su tipo, prioridad y tiempo esperado.
  */
 int obtenerPosicionProximoCliente();
 
@@ -135,7 +151,8 @@ int obtenerPosicionProximoCliente();
  * Obtiene al próximo cliente de un tipo específico que debe
  * ser atendido teniendo en cuenta su prioridad y tiempo esperado.
  *
- * tipoCliente (int): tipo de cliente que se va a buscar
+ * tipoCliente (int): tipo de cliente que se va a buscar.
+ * @param tipoCliente
  */
 int obtenerPosicionProximoClienteSegunTipo(int tipoCliente);
 
@@ -167,43 +184,88 @@ int obtenerNumTecnicosDisponibles();
  */
 int obtenerNumRespReparacionesDisponibles();
 
+/**
+ * Imprime el mensaje de bienvenida.
+ */
+void printWelcome();
+
 /**MANEJADORAS DE SEÑAL*/
 
+/**
+ * Manejadora de señal que crea un nuevo cliente de tipo APP. Responde a la señal SIGUSR1.
+ * @param sig 
+ */
 void handlerClienteApp(int sig)
 {
 	nuevoCliente(0);
 }
 
+/**
+ * Manejadorea de señal que crea un nuevo cliente de tipo RED. Responde a la señal SIGUSR2.
+ * @param sig 
+ */
 void handlerClienteRed(int sig)
 {
 	nuevoCliente(1);
 }
 
-void handlerTerminar(int sig)
+void handlerEmpty(int sig){}
+
+/**
+ * Manejadora de señal que finaliza de manera ordenada el programa. Responde a la señal SIGINT.
+ * @param s 
+ */
+void handlerTerminar(int s)
 {
+	finalizar = 1;
+	sig.sa_handler = handlerEmpty;
+	if (sigaction(SIGUSR1, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = handlerEmpty;
+	if (sigaction(SIGUSR2, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
 	printf("Hola SIGINT\n");
-	printf("Total de clientes: %d\n", contadorApp + contadorRed);
-	exit(0); // ESTO SOBRA, ES PARA SALIR POR AHORA
+	//printf("Total de clientes: %d\n", contadorApp + contadorRed);
 }
 
 /**CÓDIGOS DE EJECUCIÓN DE HILOS*/
 
+/**
+ * Código ejecutado por los hilos de técnicos. 
+ * @param arg 
+ * @return void* 
+ */
 void *Tecnico(void *arg)
 {
 	int index = *(int *)arg;
-	printf("Técnico %d\n", index);
 	accionesTecnico(0, index);
 	free(arg);
 }
 
+/**
+ * Código ejecutado por los hilos de responsables de reparaciones.
+ * @param arg 
+ * @return void* 
+ */
 void *Responsable(void *arg)
 {
 	int index = *(int *)arg;
-	printf("Responsable %d\n", index);
 	accionesTecnico(1, index);
 	free(arg);
 }
 
+/**
+ * Código ejecutado por el hilo de encargado.
+ * @param arg 
+ * @return void* 
+ */
 void *Encargado(void *arg)
 {
 	int index = *(int *)arg;
@@ -212,6 +274,11 @@ void *Encargado(void *arg)
 	free(arg);
 }
 
+/**
+ * Código ejecutado por el técnico de atención domiciliaria.
+ * @param arg 
+ * @return void* 
+ */
 void *AtencionDomiciliaria(void *arg)
 {
 	int index = *(int *)arg;
@@ -220,6 +287,11 @@ void *AtencionDomiciliaria(void *arg)
 	free(arg);
 }
 
+/**
+ * Código ejecutado por los clientes entrantes al sistema. 
+ * @param arg 
+ * @return void* 
+ */
 void *Cliente(void *arg)
 {
 	int index = *(int *)arg;
@@ -227,25 +299,14 @@ void *Cliente(void *arg)
 	free(arg);
 }
 
-void *Print(void *arg)
-{
-	do{
-		printf("\n");
-		for(int i = 0; i < NCLIENTES; i++){
-			printf("Cliente %d\n", i);
-			printf("ID: %d, Atendido: %d, Tipo: %d, Solicitud: %d\n", listaClientes[i].id, listaClientes[i].atendido, listaClientes[i].tipo, listaClientes[i].solicitud);
-		}
-		sleep(0.5);
-	} while(1);
-	
-}
 
 /**MAIN*/
 
 int main()
 {
+	printWelcome();
+
 	// Definir manejadoras para señales
-	struct sigaction sig;
 	int i;
 	sig.sa_handler = handlerClienteApp;
 	if (sigaction(SIGUSR1, &sig, NULL) == -1)
@@ -290,6 +351,7 @@ int main()
 	contadorApp = 0;
 	contadorRed = 0;
 	numSolicitudesDomicilio = 0;
+	finalizar = 0;
 
 	// Inicialización de lista de clientes
 	for (i = 0; i < NCLIENTES; i++)
@@ -325,10 +387,7 @@ int main()
 		}
 	}
 
-	// pthread_t hiloPrint;
-	// pthread_create(&hiloPrint, NULL, &Print, NULL);
-
-	// Inicialización de lista de reponsables de reparaciones
+	// Inicialización de lista de reponsables de reparaciones.
 	listaRespReparaciones = (struct Trabajador *)malloc(NRESPREPARACIONES * sizeof(struct Trabajador));
 	for (i = 0; i < NRESPREPARACIONES; i++)
 	{
@@ -337,10 +396,10 @@ int main()
 		listaRespReparaciones[i].numClientesAtendidos = 0;
 	}
 
-	// Inicialización de responsables de reparaciones
+	// Inicialización de responsables de reparaciones.
 	for (i = 0; i < NRESPREPARACIONES; i++)
 	{
-		// Agregar a lista de responsables de reparaciones
+		// Agregar a lista de responsables de reparaciones.
 		listaRespReparaciones[i].id = i + 1;
 
 		int *index = malloc(sizeof(int));
@@ -352,7 +411,7 @@ int main()
 		}
 	}
 
-	// Inicialización de encargados
+	// Inicialización de encargados.
 	for (i = 0; i < NENCARGADOS; i++)
 	{
 		int *index = malloc(sizeof(int));
@@ -364,7 +423,7 @@ int main()
 		}
 	}
 
-	// Inicialización de técnicos de atención domiciliaria
+	// Inicialización de técnicos de atención domiciliaria.
 	for (i = 0; i < NTECDOMICILIARIA; i++)
 	{
 		int *index = malloc(sizeof(int));
@@ -376,7 +435,7 @@ int main()
 		}
 	}
 
-	while (1)
+	while (finalizar == 0)
 	{
 		sig.sa_handler = handlerClienteApp;
 		if (sigaction(SIGUSR1, &sig, NULL) == -1)
@@ -459,7 +518,7 @@ void nuevoCliente(int tipo)
 	int i = 0;
 	pthread_mutex_lock(&colaClientes);
 	// Busca posición libre dentro del array (id=0)
-	while (i < NCLIENTES)
+	while (i < NCLIENTES && finalizar == 0)
 	{
 		if (listaClientes[i].id == 0)
 		{
@@ -520,7 +579,7 @@ void nuevoCliente(int tipo)
 void accionesCliente(int posicion)
 {
 	struct Cliente *cliente = malloc(sizeof(struct Cliente));
-	printf("Posición: %d\n", posicion);
+	printf("Nuevo cliente en el sistema. Posición: %d\n", posicion);
 	*cliente = listaClientes[posicion];
 
 	char *id, *msg;
@@ -664,7 +723,6 @@ void accionesCliente(int posicion)
 			{
 				pthread_cond_wait(&condSolicitudesDomicilio, &solicitudes);
 				pthread_mutex_lock(&colaClientes);
-				printf("Patata %d\n", listaClientes[posicion].id);
 				estadoSolicitud = listaClientes[posicion].solicitud;
 				pthread_mutex_unlock(&colaClientes);
 			}
@@ -874,7 +932,7 @@ void accionesTecnicoDomiciliario()
 		}
 		pthread_mutex_unlock(&solicitudes);
 
-	} while (1);
+	} while (finalizar == 0);
 }
 
 /**FUNCIONES AUXILIARES*/
@@ -1205,4 +1263,12 @@ int obtenerNumRespReparacionesDisponibles()
 	pthread_mutex_unlock(&mutexResponsables);
 
 	return rdisponibles;
+}
+
+void printWelcome()
+{
+	printf("=====================================================================\n");
+	printf("=======BIENVENIDO AL SISTEMA DE GESTIÓN DE AVERÍAS luZECita==========\n");
+	printf("=====================================================================\n");
+
 }
