@@ -236,7 +236,13 @@ void handlerTerminar(int s)
 		perror("[ERROR] Error en la llamada a sigaction.");
 		exit(-1);
 	}
-	printf("Hola SIGINT\n");
+
+	sig.sa_handler = handlerEmpty;
+	if (sigaction(SIGINT, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
 	// printf("Total de clientes: %d\n", contadorApp + contadorRed);
 }
 
@@ -250,7 +256,7 @@ void handlerTerminar(int s)
 void *Tecnico(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char) * 20);
+	id = malloc(sizeof(char) * 100);
 
 	int index = *(int *)arg;
 	accionesTecnico(0, index);
@@ -259,6 +265,7 @@ void *Tecnico(void *arg)
 	writeLogMessage(id, "Ha finalizado su trabajo");
 	pthread_mutex_unlock(&Fichero);
 	printf("Técnico %d ha finalizado su trabajo\n", index);
+	free(id);
 	free(arg);
 }
 
@@ -270,7 +277,7 @@ void *Tecnico(void *arg)
 void *Responsable(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char) * 20);
+	id = malloc(sizeof(char) * 100);
 
 	int index = *(int *)arg;
 	accionesTecnico(1, index);
@@ -279,6 +286,7 @@ void *Responsable(void *arg)
 	writeLogMessage(id, "Ha finalizado su trabajo");
 	pthread_mutex_unlock(&Fichero);
 	printf("Responsable de reparaciones %d ha finalizado su trabajo\n", index);
+	free(id);
 	free(arg);
 }
 
@@ -292,14 +300,14 @@ void *Encargado(void *arg)
 	int index = *(int *)arg;
 	accionesEncargado();
 	char *id;
-	id = malloc(sizeof(char) * 20);
+	id = malloc(sizeof(char) * 100);
 
 	sprintf(id, "resprep_%d", index);
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Ha finalizado su trabajo");
 	pthread_mutex_unlock(&Fichero);
 	printf("Encargado %d ha finalizado su trabajo\n", index);
-
+	free(id);
 	free(arg);
 }
 
@@ -311,7 +319,7 @@ void *Encargado(void *arg)
 void *AtencionDomiciliaria(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char) * 20);
+	id = malloc(sizeof(char) * 100);
 
 	int index = *(int *)arg;
 	accionesTecnicoDomiciliario();
@@ -320,6 +328,7 @@ void *AtencionDomiciliaria(void *arg)
 	writeLogMessage(id, "Ha finalizado su trabajo");
 	pthread_mutex_unlock(&Fichero);
 	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo\n", index);
+	free(id);
 	free(arg);
 }
 
@@ -579,7 +588,7 @@ void nuevoCliente(int tipo)
 			pthread_t cliente;
 			char *id;
 
-			id = malloc(sizeof(char) * 20); // Identificador único de cada cliente
+			id = malloc(sizeof(char) * 100); // Identificador único de cada cliente
 
 			// Inicializamos hilo cliente de tipo APP y escribimos el hecho en el log
 			if (listaClientes[i].tipo == 0)
@@ -602,7 +611,7 @@ void nuevoCliente(int tipo)
 			{
 				perror("[ERROR] Error al introducir un nuevo cliente");
 			}
-
+			free(id);
 			break; // El bucle termina cuando encuentra una posición libre
 		}
 		i++;
@@ -617,7 +626,7 @@ void accionesCliente(int posicion)
 	char *id, *msg;
 	int seVa = 0; // en principio, el cliente no se va.
 
-	id = malloc(sizeof(char) * 20);
+	id = malloc(sizeof(char) * 100);
 
 	pthread_mutex_lock(&colaClientes); // TODO duda ¿Proteger?
 	int tipo = listaClientes[posicion].tipo;
@@ -767,6 +776,8 @@ void accionesCliente(int posicion)
 	}
 
 	// El cliente se va
+	free(id);
+	free(msg);
 	liberaCliente(posicion);
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Se va tras haber sido atendido");
@@ -926,9 +937,9 @@ void accionesTecnicoDomiciliario()
 	int posicionCliente;
 	int totalSolicitudes = NSOLICDOMINECESARIAS;
 
-	id = malloc(sizeof(char) * 20);
-	cadena1 = malloc(sizeof(char) * 30);
-	cadena2 = malloc(sizeof(char) * 20);
+	id = malloc(sizeof(char) * 100);
+	cadena1 = malloc(sizeof(char) * 100);
+	cadena2 = malloc(sizeof(char) * 100);
 
 	sprintf(id, "tecnico_dom");
 	do
@@ -986,6 +997,9 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_unlock(&solicitudes);
 
 	} while (finalizar == 0);
+	free(id);
+	free(cadena1);
+	free(cadena2);
 }
 
 /**FUNCIONES AUXILIARES*/
@@ -1164,8 +1178,8 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 	else
 	{
 		char *idTrabajador, *idCliente, *msg;
-		idTrabajador = malloc(sizeof(char) * 20);
-		idCliente = malloc(sizeof(char) * 20);
+		idTrabajador = malloc(sizeof(char) * 100);
+		idCliente = malloc(sizeof(char) * 100);
 		msg = malloc(sizeof(char) * 100);
 
 		// Definir id del trabajador según su tipo
@@ -1268,6 +1282,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 			listaClientes[posCliente].atendido = 2;
 			pthread_mutex_unlock(&colaClientes);
 		}
+		free(idTrabajador);
+		free(idCliente);
+		free(msg);
 	}
 
 	// Establecer como disponible al trabajador segun tipo
