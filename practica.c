@@ -78,7 +78,7 @@ void nuevoCliente(int tipo);
 
 // ÁLVARO
 /**
- * Recibe un puntero a su estructura cliente de la cola de clientes.
+ * Recibe la posición de su estructura de cliente en la cola de clientes.
  * posicion (int): valor entero que indica la posición de un cliente en el array listaClientes (struct[]).
  * @param posicion
  */
@@ -250,7 +250,7 @@ void handlerTerminar(int s)
 void *Tecnico(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char)*20);
+	id = malloc(sizeof(char) * 20);
 
 	int index = *(int *)arg;
 	accionesTecnico(0, index);
@@ -270,7 +270,7 @@ void *Tecnico(void *arg)
 void *Responsable(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char)*20);
+	id = malloc(sizeof(char) * 20);
 
 	int index = *(int *)arg;
 	accionesTecnico(1, index);
@@ -292,7 +292,7 @@ void *Encargado(void *arg)
 	int index = *(int *)arg;
 	accionesEncargado();
 	char *id;
-	id = malloc(sizeof(char)*20);
+	id = malloc(sizeof(char) * 20);
 
 	sprintf(id, "resprep_%d", index);
 	pthread_mutex_lock(&Fichero);
@@ -311,7 +311,7 @@ void *Encargado(void *arg)
 void *AtencionDomiciliaria(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char)*20);
+	id = malloc(sizeof(char) * 20);
 
 	int index = *(int *)arg;
 	accionesTecnicoDomiciliario();
@@ -496,42 +496,42 @@ int main()
 	}
 
 	// TODO: No sé si esto es necesario, conviene revisarlo posteriormente - Joins de todos los hilos
-	 for (i = 0; i < NTECNICOS; i++)
-	 {
-	 	if (pthread_join(tecnicos[i], NULL) != 0)
-	 	{
-	 		perror("[ERROR] Error al unir hilo de técnico.");
-	 		return -1;
-	 	}
-	 }
+	for (i = 0; i < NTECNICOS; i++)
+	{
+		if (pthread_join(tecnicos[i], NULL) != 0)
+		{
+			perror("[ERROR] Error al unir hilo de técnico.");
+			return -1;
+		}
+	}
 
-	 for (i = 0; i < NRESPREPARACIONES; i++)
-	 {
-	 	if (pthread_join(respReparaciones[i], NULL) != 0)
-	 	{
-	 		perror("[ERROR] Error al unir hilo de responsable de reparaciones.");
-	 		return -1;
-	 	}
-	 }
+	for (i = 0; i < NRESPREPARACIONES; i++)
+	{
+		if (pthread_join(respReparaciones[i], NULL) != 0)
+		{
+			perror("[ERROR] Error al unir hilo de responsable de reparaciones.");
+			return -1;
+		}
+	}
 
-	 for (i = 0; i < NENCARGADOS; i++)
-	 {
-	 	if (pthread_join(encargados[i], NULL) != 0)
-	 	{
-	 		perror("[ERROR] Error al unir hilo de encargado.");
-	 		return -1;
-	 	}
-	 }
+	for (i = 0; i < NENCARGADOS; i++)
+	{
+		if (pthread_join(encargados[i], NULL) != 0)
+		{
+			perror("[ERROR] Error al unir hilo de encargado.");
+			return -1;
+		}
+	}
 
-	 for (i = 0; i < NTECDOMICILIARIA; i++)
-	 {
-	 	if (pthread_join(tecAttDomiciliaria[i], NULL) != 0)
-	 	{
-	 		perror("[ERROR] Error al unir hilo de técnico de atención domiciliaria.");
-	 		return -1;
-	 	}
-	 }
-	 printf("Finalizado el programa de gestión con éxito\n");
+	for (i = 0; i < NTECDOMICILIARIA; i++)
+	{
+		if (pthread_join(tecAttDomiciliaria[i], NULL) != 0)
+		{
+			perror("[ERROR] Error al unir hilo de técnico de atención domiciliaria.");
+			return -1;
+		}
+	}
+	printf("Finalizado el programa de gestión con éxito\n");
 
 	// Liberar listas
 	free(listaTecnicos);
@@ -574,8 +574,6 @@ void nuevoCliente(int tipo)
 			listaClientes[i].tipo = tipo;
 			listaClientes[i].solicitud = 0;
 			listaClientes[i].prioridad = calculaAleatorios(1, 10);
-			struct Cliente *punteroCliente = malloc(sizeof(struct Cliente));
-			*(punteroCliente) = listaClientes[i];
 
 			// Creamos un hilo cliente y lo inicializamos
 			pthread_t cliente;
@@ -614,9 +612,7 @@ void nuevoCliente(int tipo)
 
 void accionesCliente(int posicion)
 {
-	struct Cliente *cliente = malloc(sizeof(struct Cliente));
 	printf("Nuevo cliente en el sistema. Posición: %d\n", posicion);
-	*cliente = listaClientes[posicion];
 
 	char *id, *msg;
 	int seVa = 0; // en principio, el cliente no se va.
@@ -630,7 +626,7 @@ void accionesCliente(int posicion)
 	if (tipo == 0)
 	{
 		// Cliente app
-		sprintf(id, "cliapp_%d", cliente->id);
+		sprintf(id, "cliapp_%d", listaClientes[posicion].id);
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Cliente de tipo APP acaba de entrar al sistema.");
 		pthread_mutex_unlock(&Fichero);
@@ -638,7 +634,7 @@ void accionesCliente(int posicion)
 	else
 	{
 		// Cliente red
-		sprintf(id, "clired_%d", cliente->id);
+		sprintf(id, "clired_%d", listaClientes[posicion].id);
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Cliente de tipo RED acaba de entrar al sistema.");
 		pthread_mutex_unlock(&Fichero);
@@ -945,12 +941,11 @@ void accionesTecnicoDomiciliario()
 			pthread_cond_wait(&condSolicitudesDomicilio, &solicitudes);
 
 			// Atiende las solicitudes pendientes cuando finaliza el programa.
-			if(finalizar == 1)
+			if (finalizar == 1)
 			{
 				totalSolicitudes = numSolicitudesDomicilio;
 				break;
 			}
-
 		}
 		pthread_mutex_unlock(&solicitudes);
 
@@ -983,7 +978,7 @@ void accionesTecnicoDomiciliario()
 
 		// Damos aviso a los que esperaban por atención domiciliaria
 		pthread_mutex_lock(&solicitudes);
-		for(i = 0; i < totalSolicitudes; i++)
+		for (i = 0; i < totalSolicitudes; i++)
 		{
 			printf("Signal %d\n", i);
 			pthread_cond_signal(&condSolicitudesDomicilio);
@@ -1147,7 +1142,7 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
 {
 
-	//Establecer como no disponible al trabajador segun tipo
+	// Establecer como no disponible al trabajador segun tipo
 	if (tipoTrabajador == 0)
 	{
 		pthread_mutex_lock(&mutexTecnicos);
@@ -1275,7 +1270,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		}
 	}
 
-	//Establecer como disponible al trabajador segun tipo
+	// Establecer como disponible al trabajador segun tipo
 	if (tipoTrabajador == 0)
 	{
 		pthread_mutex_lock(&mutexTecnicos);
