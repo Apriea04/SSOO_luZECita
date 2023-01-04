@@ -153,7 +153,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
  * Escribe en el puntero el identificador del próximo cliente que recibió atención domiciliaria y
  * establece la solicitud a 0 del cliente que la solicitó.
  */
-void obtenerIDClienteAttDom(char *cadena);
+int obtenerIDClienteAttDom(char *cadena);
 
 /**MANEJADORAS DE SEÑAL*/
 
@@ -210,10 +210,22 @@ void *AtencionDomiciliaria(void *arg)
 
 void *Cliente(void *arg)
 {
-	printf("Cliente nuevo\n");
 	int index = *(int *)arg;
 	accionesCliente(index);
 	free(arg);
+}
+
+void *Print(void *arg)
+{
+	do{
+		printf("\n");
+		for(int i = 0; i < NCLIENTES; i++){
+			printf("Cliente %d\n", i);
+			printf("ID: %d, Atendido: %d, Tipo: %d, Solicitud: %d\n", listaClientes[i].id, listaClientes[i].atendido, listaClientes[i].tipo, listaClientes[i].solicitud);
+		}
+		sleep(0.5);
+	} while(1);
+	
 }
 
 /**MAIN*/
@@ -300,6 +312,9 @@ int main()
 			return -1;
 		}
 	}
+
+	// pthread_t hiloPrint;
+	// pthread_create(&hiloPrint, NULL, &Print, NULL);
 
 	// Inicialización de lista de reponsables de reparaciones
 	listaRespReparaciones = (struct Trabajador *)malloc(NRESPREPARACIONES * sizeof(struct Trabajador));
@@ -493,6 +508,7 @@ void nuevoCliente(int tipo)
 void accionesCliente(int posicion)
 {
 	struct Cliente *cliente = malloc(sizeof(struct Cliente));
+	printf("Posición: %d\n", posicion);
 	*cliente = listaClientes[posicion];
 
 	char *id, *msg;
@@ -625,12 +641,7 @@ void accionesCliente(int posicion)
 			if (numSolicitudesDomicilio == NSOLICDOMINECESARIAS)
 			{
 				// Damos el aviso:
-				pthread_mutex_unlock(&solicitudes);
 				pthread_cond_signal(&condSolicitudesDomicilio);
-			}
-			else
-			{
-				pthread_mutex_unlock(&solicitudes);
 			}
 
 			pthread_mutex_lock(&colaClientes);
@@ -641,9 +652,13 @@ void accionesCliente(int posicion)
 			{
 				pthread_cond_wait(&condSolicitudesDomicilio, &solicitudes);
 				pthread_mutex_lock(&colaClientes);
-				int estadoSolicitud = listaClientes[posicion].solicitud;
+				printf("Patata %d\n", listaClientes[posicion].id);
+				estadoSolicitud = listaClientes[posicion].solicitud;
 				pthread_mutex_unlock(&colaClientes);
 			}
+			pthread_mutex_unlock(&solicitudes);
+
+			
 
 			pthread_mutex_lock(&Fichero);
 			writeLogMessage(id, "Recibió atención domiciliaria.");
@@ -753,6 +768,7 @@ void accionesTecnicoDomiciliario()
 {
 	char *id, *cadena1, *cadena2;
 	int i;
+	int posicionCliente;
 
 	id = malloc(sizeof(char) * 20);
 	cadena1 = malloc(sizeof(char) * 30);
@@ -779,7 +795,8 @@ void accionesTecnicoDomiciliario()
 		{
 			sleep(1);
 			sprintf(cadena1, "Atendido cliente ");
-			obtenerIDClienteAttDom(cadena2);
+			posicionCliente = obtenerIDClienteAttDom(cadena2);
+			//listaClientes[posicionCliente].solicitud = 0;
 			strcat(cadena1, cadena2);
 
 			pthread_mutex_lock(&Fichero);
@@ -798,7 +815,10 @@ void accionesTecnicoDomiciliario()
 
 		// Damos aviso a los que esperaban por atención domiciliaria
 		pthread_mutex_lock(&solicitudes);
-		pthread_cond_signal(&condSolicitudesDomicilio);
+		for(i = 0; i < NSOLICDOMINECESARIAS; i++)
+		{
+			pthread_cond_signal(&condSolicitudesDomicilio);
+		}
 		pthread_mutex_unlock(&solicitudes);
 
 	} while (1);
@@ -1072,7 +1092,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 	}
 }
 
-void obtenerIDClienteAttDom(char *cadena)
+int obtenerIDClienteAttDom(char *cadena)
 {
 	int i, count;
 	count = 0;
@@ -1081,6 +1101,7 @@ void obtenerIDClienteAttDom(char *cadena)
 	{
 		if (listaClientes[i].solicitud == 1)
 		{
+			
 			sprintf(cadena, "clired_%d", listaClientes[i].id);
 			pthread_mutex_lock(&colaClientes);
 			listaClientes[i].solicitud = 0;
@@ -1092,4 +1113,5 @@ void obtenerIDClienteAttDom(char *cadena)
 			i++;
 		}
 	}
+	return i;
 }
