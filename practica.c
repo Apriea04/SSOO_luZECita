@@ -170,7 +170,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
  * Escribe en el puntero el identificador del próximo cliente que recibió atención domiciliaria y
  * establece la solicitud a 0 del cliente que la solicitó.
  */
-int obtenerIDClienteAttDom(char *cadena);
+void obtenerIDClienteAttDom(char *cadena);
 
 /**
  * Devuelve un cero si no hay técnicos disponibles, en caso contrario, devuelve el número de
@@ -218,6 +218,12 @@ void handlerEmpty(int sig){}
 void handlerTerminar(int s)
 {
 	finalizar = 1;
+
+	pthread_mutex_lock(&solicitudes);
+	printf("Enviando señal\n");
+	pthread_cond_signal(&condSolicitudesDomicilio);
+	pthread_mutex_unlock(&solicitudes);
+
 	sig.sa_handler = handlerEmpty;
 	if (sigaction(SIGUSR1, &sig, NULL) == -1)
 	{
@@ -244,8 +250,16 @@ void handlerTerminar(int s)
  */
 void *Tecnico(void *arg)
 {
+	char *id;
+	id = malloc(sizeof(char)*20);
+
 	int index = *(int *)arg;
 	accionesTecnico(0, index);
+	sprintf(id, "tecnico_%d", index);
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage(id, "Ha finalizado su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Técnico %d ha finalizado su trabajo\n", index);
 	free(arg);
 }
 
@@ -256,8 +270,16 @@ void *Tecnico(void *arg)
  */
 void *Responsable(void *arg)
 {
+	char *id;
+	id = malloc(sizeof(char)*20);
+
 	int index = *(int *)arg;
 	accionesTecnico(1, index);
+	sprintf(id, "resprep_%d", index);
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage(id, "Ha finalizado su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Responsable de reparaciones %d ha finalizado su trabajo\n", index);
 	free(arg);
 }
 
@@ -270,7 +292,15 @@ void *Encargado(void *arg)
 {
 	int index = *(int *)arg;
 	accionesEncargado();
-	printf("Encargado %d\n", index);
+	char *id;
+	id = malloc(sizeof(char)*20);
+
+	sprintf(id, "resprep_%d", index);
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage(id, "Ha finalizado su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Encargado %d ha finalizado su trabajo\n", index);
+
 	free(arg);
 }
 
@@ -281,9 +311,16 @@ void *Encargado(void *arg)
  */
 void *AtencionDomiciliaria(void *arg)
 {
+	char *id;
+	id = malloc(sizeof(char)*20);
+
 	int index = *(int *)arg;
 	accionesTecnicoDomiciliario();
-	printf("Atención domiciliaria %d\n", index);
+	sprintf(id, "resprep_%d", index);
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage(id, "Ha finalizado su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo\n", index);
 	free(arg);
 }
 
@@ -461,41 +498,42 @@ int main()
 	}
 
 	// TODO: No sé si esto es necesario, conviene revisarlo posteriormente - Joins de todos los hilos
-	// for (i = 0; i < NTECNICOS; i++)
-	// {
-	// 	if (pthread_join(tecnicos[i], NULL) != 0)
-	// 	{
-	// 		perror("[ERROR] Error al unir hilo de técnico.");
-	// 		return -1;
-	// 	}
-	// }
+	 for (i = 0; i < NTECNICOS; i++)
+	 {
+	 	if (pthread_join(tecnicos[i], NULL) != 0)
+	 	{
+	 		perror("[ERROR] Error al unir hilo de técnico.");
+	 		return -1;
+	 	}
+	 }
 
-	// for (i = 0; i < NRESPREPARACIONES; i++)
-	// {
-	// 	if (pthread_join(respReparaciones[i], NULL) != 0)
-	// 	{
-	// 		perror("[ERROR] Error al unir hilo de responsable de reparaciones.");
-	// 		return -1;
-	// 	}
-	// }
+	 for (i = 0; i < NRESPREPARACIONES; i++)
+	 {
+	 	if (pthread_join(respReparaciones[i], NULL) != 0)
+	 	{
+	 		perror("[ERROR] Error al unir hilo de responsable de reparaciones.");
+	 		return -1;
+	 	}
+	 }
 
-	// for (i = 0; i < NENCARGADOS; i++)
-	// {
-	// 	if (pthread_join(encargados[i], NULL) != 0)
-	// 	{
-	// 		perror("[ERROR] Error al unir hilo de encargado.");
-	// 		return -1;
-	// 	}
-	// }
+	 for (i = 0; i < NENCARGADOS; i++)
+	 {
+	 	if (pthread_join(encargados[i], NULL) != 0)
+	 	{
+	 		perror("[ERROR] Error al unir hilo de encargado.");
+	 		return -1;
+	 	}
+	 }
 
-	// for (i = 0; i < NTECDOMICILIARIA; i++)
-	// {
-	// 	if (pthread_join(tecAttDomiciliaria[i], NULL) != 0)
-	// 	{
-	// 		perror("[ERROR] Error al unir hilo de técnico de atención domiciliaria.");
-	// 		return -1;
-	// 	}
-	// }
+	 for (i = 0; i < NTECDOMICILIARIA; i++)
+	 {
+	 	if (pthread_join(tecAttDomiciliaria[i], NULL) != 0)
+	 	{
+	 		perror("[ERROR] Error al unir hilo de técnico de atención domiciliaria.");
+	 		return -1;
+	 	}
+	 }
+	 printf("Finalizado el programa de gestión con éxito\n");
 
 	// Liberar listas
 	free(listaTecnicos);
@@ -810,7 +848,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 			listaRespReparaciones[posTrabajador].numClientesAtendidos = listaRespReparaciones[posTrabajador].numClientesAtendidos + 1;
 			pthread_mutex_unlock(&mutexResponsables);
 		}
-	} while (1);
+	} while (finalizar == 0);
 }
 
 void accionesEncargado()
@@ -872,7 +910,7 @@ void accionesEncargado()
 
 		// Atender al cliente como encargado si hay trabajadores ocupados
 		atenderCliente(-1, 1, tipoCliente, posCliente);
-	} while (1);
+	} while (finalizar == 0);
 }
 
 void accionesTecnicoDomiciliario()
@@ -880,6 +918,7 @@ void accionesTecnicoDomiciliario()
 	char *id, *cadena1, *cadena2;
 	int i;
 	int posicionCliente;
+	int totalSolicitudes = NSOLICDOMINECESARIAS;
 
 	id = malloc(sizeof(char) * 20);
 	cadena1 = malloc(sizeof(char) * 30);
@@ -894,6 +933,14 @@ void accionesTecnicoDomiciliario()
 		{
 			// Espera a que el número de solicitudes sea 4
 			pthread_cond_wait(&condSolicitudesDomicilio, &solicitudes);
+
+			// Atiende las solicitudes pendientes cuando finaliza el programa.
+			if(finalizar == 1)
+			{
+				totalSolicitudes = numSolicitudesDomicilio;
+				break;
+			}
+
 		}
 		pthread_mutex_unlock(&solicitudes);
 
@@ -902,12 +949,12 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_unlock(&Fichero);
 
 		// Atendemos cada solicitud
-		for (i = 0; i < NSOLICDOMINECESARIAS; i++)
+		for (i = 0; i < totalSolicitudes; i++)
 		{
 			sleep(1);
+			printf("Cliente %d\n", i);
 			sprintf(cadena1, "Atendido cliente ");
-			posicionCliente = obtenerIDClienteAttDom(cadena2);
-			//listaClientes[posicionCliente].solicitud = 0;
+			obtenerIDClienteAttDom(cadena2);
 			strcat(cadena1, cadena2);
 
 			pthread_mutex_lock(&Fichero);
@@ -926,8 +973,9 @@ void accionesTecnicoDomiciliario()
 
 		// Damos aviso a los que esperaban por atención domiciliaria
 		pthread_mutex_lock(&solicitudes);
-		for(i = 0; i < NSOLICDOMINECESARIAS; i++)
+		for(i = 0; i < totalSolicitudes; i++)
 		{
+			printf("Signal %d\n", i);
 			pthread_cond_signal(&condSolicitudesDomicilio);
 		}
 		pthread_mutex_unlock(&solicitudes);
@@ -1203,7 +1251,7 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 	}
 }
 
-int obtenerIDClienteAttDom(char *cadena)
+void obtenerIDClienteAttDom(char *cadena)
 {
 	int i, count;
 	count = 0;
@@ -1224,7 +1272,6 @@ int obtenerIDClienteAttDom(char *cadena)
 			i++;
 		}
 	}
-	return i;
 }
 
 int obtenerNumTecnicosDisponibles()
