@@ -155,6 +155,18 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
  */
 int obtenerIDClienteAttDom(char *cadena);
 
+/**
+ * Devuelve un cero si no hay técnicos disponibles, en caso contrario, devuelve el número de
+ * técnicos disponibles.
+ */
+int obtenerNumTecnicosDisponibles();
+
+/**
+ * Devuelve un cero si no hay responsables disponibles, en caso contrario, devuelve el número de
+ * responsables disponibles.
+ */
+int obtenerNumRespReparacionesDisponibles();
+
 /**MANEJADORAS DE SEÑAL*/
 
 void handlerClienteApp(int sig)
@@ -679,6 +691,8 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 	int posCliente;
 	int tipoCliente;
 
+	//TODO cambiar estado de disponibilidad del trabajador
+
 	// Bucle en el que el trabajador va atendiendo a los clientes que le lleguen
 	do
 	{
@@ -749,18 +763,57 @@ void accionesEncargado()
 	// Bucle en el que el encargado va atendiendo a los clientes que le lleguen
 	do
 	{
-		// Obtener posición del cliente a atender según el tipo de trabajador
-		pthread_mutex_lock(&colaClientes);
-		posCliente = obtenerPosicionProximoCliente();
-		// Obtener tipo del cliente en cuestión
-		tipoCliente = listaClientes[posCliente].tipo;
-		// El cliente pasa a estar en proceso de ser atendido
-		listaClientes[posCliente].atendido = 1;
-		pthread_mutex_unlock(&colaClientes);
+		int numTecnicosDisponibles = obtenerNumTecnicosDisponibles();
+		int numRespReparacionesDisponibles = obtenerNumRespReparacionesDisponibles();
 
-		// Atender al cliente como encargado
+		// Comprobar si los técnicos o responsables de reparaciones están ocupados
+		if (numTecnicosDisponibles == 0 && numRespReparacionesDisponibles == 0)
+		{
+			// Tanto técnicos como responsables de reparaciones están ocupados
+
+			// Obtener posición del primer cliente libre
+			pthread_mutex_lock(&colaClientes);
+			posCliente = obtenerPosicionProximoCliente();
+			// Obtener tipo del cliente en cuestión
+			tipoCliente = listaClientes[posCliente].tipo;
+			// El cliente pasa a estar en proceso de ser atendido
+			listaClientes[posCliente].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+		}
+		else if (numTecnicosDisponibles == 0)
+		{
+			// No hay técnicos disponibles, el encargado atiende al próximo cliente de su tipo
+
+			// Obtener posición de cliente de tipo APP
+			pthread_mutex_lock(&colaClientes);
+			posCliente = obtenerPosicionProximoClienteSegunTipo(0);
+			// Obtener tipo del cliente en cuestión
+			tipoCliente = listaClientes[posCliente].tipo;
+			// El cliente pasa a estar en proceso de ser atendido
+			listaClientes[posCliente].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+		}
+		else if (numRespReparacionesDisponibles == 0)
+		{
+			// No hay responsables de reparaciones disponibles, el encargado atiende al próximo cliente de su tipo
+
+			// Obtener posición de cliente de tipo RED
+			pthread_mutex_lock(&colaClientes);
+			posCliente = obtenerPosicionProximoClienteSegunTipo(1);
+			// Obtener tipo del cliente en cuestión
+			tipoCliente = listaClientes[posCliente].tipo;
+			// El cliente pasa a estar en proceso de ser atendido
+			listaClientes[posCliente].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+		}
+		else
+		{
+			// No hay trabajadores ocupados
+			continue;
+		}
+
+		// Atender al cliente como encargado si hay trabajadores ocupados
 		atenderCliente(-1, 1, tipoCliente, posCliente);
-
 	} while (1);
 }
 
@@ -1114,4 +1167,42 @@ int obtenerIDClienteAttDom(char *cadena)
 		}
 	}
 	return i;
+}
+
+int obtenerNumTecnicosDisponibles()
+{
+	int tdisponibles = 0;
+
+	pthread_mutex_lock(&mutexTecnicos);
+
+	for (int i = 0; i < NTECNICOS; i++)
+	{
+		if (listaTecnicos[i].disponible == 1)
+		{
+			tdisponibles++;
+		}
+	}
+
+	pthread_mutex_unlock(&mutexTecnicos);
+
+	return tdisponibles;
+}
+
+int obtenerNumRespReparacionesDisponibles()
+{
+	int rdisponibles = 0;
+
+	pthread_mutex_lock(&mutexResponsables);
+
+	for (int i = 0; i < NRESPREPARACIONES; i++)
+	{
+		if (listaRespReparaciones[i].disponible == 1)
+		{
+			rdisponibles++;
+		}
+	}
+
+	pthread_mutex_unlock(&mutexResponsables);
+
+	return rdisponibles;
 }
