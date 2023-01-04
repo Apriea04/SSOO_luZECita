@@ -964,12 +964,7 @@ void accionesTecnicoDomiciliario()
 			sleep(1);
 			printf("Cliente %d\n", i);
 			sprintf(cadena1, "Atendido cliente ");
-<<<<<<< HEAD
 			obtenerIDClienteAttDom(cadena2);
-=======
-			posicionCliente = obtenerIDClienteAttDom(cadena2);
-			// listaClientes[posicionCliente].solicitud = 0;
->>>>>>> refs/remotes/origin/main
 			strcat(cadena1, cadena2);
 
 			pthread_mutex_lock(&Fichero);
@@ -988,11 +983,7 @@ void accionesTecnicoDomiciliario()
 
 		// Damos aviso a los que esperaban por atención domiciliaria
 		pthread_mutex_lock(&solicitudes);
-<<<<<<< HEAD
 		for(i = 0; i < totalSolicitudes; i++)
-=======
-		for (i = 0; i < NSOLICDOMINECESARIAS; i++)
->>>>>>> refs/remotes/origin/main
 		{
 			printf("Signal %d\n", i);
 			pthread_cond_signal(&condSolicitudesDomicilio);
