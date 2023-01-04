@@ -61,6 +61,7 @@ struct Trabajador *listaRespReparaciones;
 FILE *logFile;
 
 /**DECLARACIÓN DE FUNCIONES PRINCIPALES*/
+
 void nuevoCliente(int tipo);
 
 void accionesCliente(int posicion);
@@ -71,126 +72,36 @@ void accionesEncargado();
 
 void accionesTecnicoDomiciliario();
 
-/**FUNCIONES*/
+/**DECLARACIÓN DE FUNCIONES AUXILIARES*/
 
 /**
  * Escribe un mensaje nuevo en el fichero registroTiempos.log.
  * El mensaje estará compuesto por la fecha y la hora, el identificador del hilo que lo ejecuta y el mensaje.
  */
-void writeLogMessage(char *id, char *msg)
-{
-	//	Calculamos la hora actual
-	time_t now = time(0);
-	struct tm *tlocal = localtime(&now);
-	char stnow[25];
-	strftime(stnow, 25, "%d/%m/%y %H:%M:%S", tlocal);
-
-	// Escribimos en el log
-	logFile = fopen("registroTiempos.log", "a");
-	fprintf(logFile, "[%s] %s: %s\n", stnow, id, msg);
-	fclose(logFile);
-}
+void writeLogMessage(char *id, char *msg);
 
 /**
  * Calcula un número aleatorio entre el mínimo y el máximo espeficicados.
  * Ambos números se incluyen en el cálculo.
  */
-int calculaAleatorios(int min, int max)
-{
-	return rand() % (max - min + 1) + min;
-}
+int calculaAleatorios(int min, int max);
 
+// TODO: ESTA FUNCIÓN NO SE ESTÁ UTILIZANDO
 /**
  * Devuelve el número de clientes de tipo red
  */
-int NClientesRed()
-{
-	int nred = 0, i;
-
-	for (i = 0; i < NCLIENTES; i++)
-	{
-		if (listaClientes[i].tipo == 1)
-		{
-			nred++;
-		}
-	}
-
-	return nred;
-}
+int NClientesRed();
 
 /**
  * Libera el cliente del vector de clientes.
  */
-void liberaCliente(int posicion)
-{
-	pthread_mutex_lock(&colaClientes);
-	listaClientes[posicion].id = 0;
-	listaClientes[posicion].atendido = 0;
-	listaClientes[posicion].prioridad = 0;
-	listaClientes[posicion].solicitud = 0;
-	listaClientes[posicion].tipo = 0;
-	pthread_mutex_unlock(&colaClientes);
-}
+void liberaCliente(int posicion);
 
 /**
  * Obtiene al próximo cliente que debe ser atendido,
  * tendiendo en cuenta su tipo, prioridad y tiempo esperado.
  */
-int obtenerPosicionProximoCliente()
-{
-	// Variables que guardarán los datos del próximo cliente
-	int posProxCliente = -1;
-	int prioridadProxCliente = -1;
-	int tipoProxCliente = 0;
-	int idProxCliente = -1;
-
-	int cambiarCliente = 0;
-
-	for (int i = 0; i < NCLIENTES; i++)
-	{
-		cambiarCliente = 0;
-		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
-		{
-			// Es un cliente, no está vacío y puede ser atendido.
-			if (listaClientes[i].tipo == 1 && tipoProxCliente == 0)
-			{
-				// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
-				// Se debe actualizar los campos por el nuevo cliente
-				cambiarCliente = 1;
-			}
-			else if (listaClientes[i].tipo == tipoProxCliente && tipoProxCliente == 1 || listaClientes[i].tipo == tipoProxCliente && tipoProxCliente == 0)
-			{
-				// Tenemos dos clientes del mismo tipo
-				if (listaClientes[i].prioridad > prioridadProxCliente)
-				{
-					// Tiene más prioridad, luego cambiamos el cliente
-					// Se debe actualizar los campos por el nuevo cliente
-					cambiarCliente = 1;
-				}
-				else if (listaClientes[i].prioridad == prioridadProxCliente)
-				{
-					// Tienen la misma prioridad, cogemos el de menor id (más tiempo esperado)
-					if (listaClientes[i].id < idProxCliente)
-					{
-						// Se debe actualizar los campos por el nuevo cliente
-						cambiarCliente = 1;
-					}
-				}
-			}
-		}
-
-		// Comprobar si se deben modificar los campos por este cliente
-		if (cambiarCliente == 1)
-		{
-			posProxCliente = i;
-			prioridadProxCliente = listaClientes[i].prioridad;
-			tipoProxCliente = listaClientes[i].tipo;
-			idProxCliente = listaClientes[i].id;
-		}
-	}
-
-	return posProxCliente;
-}
+int obtenerPosicionProximoCliente();
 
 /**
  * Obtiene al próximo cliente de un tipo específico que debe
@@ -198,53 +109,7 @@ int obtenerPosicionProximoCliente()
  *
  * tipoCliente (int): tipo de cliente que se va a buscar
  */
-int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
-{
-	// Variables que guardarán los datos del próximo cliente
-	int posProxCliente = -1;
-	int prioridadProxCliente = -1;
-	int idProxCliente = -1;
-
-	int cambiarCliente = 0;
-
-	for (int i = 0; i < NCLIENTES; i++)
-	{
-		cambiarCliente = 0;
-		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
-		{
-			// Es un cliente, no está vacío y puede ser atendido.
-			if (listaClientes[i].tipo == tipoCliente)
-			{
-				// Tenemos dos clientes del mismo tipo
-				if (listaClientes[i].prioridad > prioridadProxCliente)
-				{
-					// Tiene más prioridad, luego cambiamos el cliente
-					// Se debe actualizar los campos por el nuevo cliente
-					cambiarCliente = 1;
-				}
-				else if (listaClientes[i].prioridad == prioridadProxCliente)
-				{
-					// Tienen la misma prioridad, cogemos el de menor id (más tiempo esperado)
-					if (listaClientes[i].id < idProxCliente)
-					{
-						// Se debe actualizar los campos por el nuevo cliente
-						cambiarCliente = 1;
-					}
-				}
-			}
-		}
-
-		// Comprobar si se deben modificar los campos por este cliente
-		if (cambiarCliente == 1)
-		{
-			posProxCliente = i;
-			prioridadProxCliente = listaClientes[i].prioridad;
-			idProxCliente = listaClientes[i].id;
-		}
-	}
-
-	return posProxCliente;
-}
+int obtenerPosicionProximoClienteSegunTipo(int tipoCliente);
 
 /**
  * Lleva a cabo el proceso de atención de un técnico a un cliente
@@ -254,150 +119,13 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
  * tipoCliente (int): tipo de cliente
  * posCliente (int): posición del cliente en la lista de clientes
  */
-void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
-{
-	if (posCliente == -1)
-	{
-		// No se ha encontrado un cliente al que atender, esperamos 2 segundos
-		sleep(2);
-	}
-	else
-	{
-		char *idTrabajador, *idCliente, *msg;
-		idTrabajador = malloc(sizeof(char) * 20);
-		idCliente = malloc(sizeof(char) * 20);
-		msg = malloc(sizeof(char) * 100);
-
-		// Definir id del trabajador según su tipo
-		int numID = 1;
-		if (tipoTrabajador == -1)
-		{
-			// Definir id del encargado
-			sprintf(idTrabajador, "encargado_%d", numID);
-		}
-		else if (tipoTrabajador == 0)
-		{
-			// Definir id de técnico
-			pthread_mutex_lock(&mutexTecnicos);
-			numID = listaTecnicos[posTrabajador].id;
-			pthread_mutex_unlock(&mutexTecnicos);
-			sprintf(idTrabajador, "tecnico_%d", numID);
-		}
-		else if (tipoTrabajador == 1)
-		{
-			// Definir id de responsable de reparaciones
-			pthread_mutex_lock(&mutexResponsables);
-			numID = listaRespReparaciones[posTrabajador].id;
-			pthread_mutex_unlock(&mutexResponsables);
-			sprintf(idTrabajador, "resprep_%d", numID);
-		}
-
-		// Definir id del cliente según su tipo
-		if (tipoCliente == 0)
-		{
-			// Definir id de cliente de red
-			numID = listaClientes[posCliente].id;
-			sprintf(idCliente, "cliapp_%d", numID);
-		}
-		else
-		{
-			// Definir id de cliente de app
-			numID = listaClientes[posCliente].id;
-			sprintf(idCliente, "clired_%d", numID);
-		}
-
-		// Indicamos que comienza el proceso de atención en el log
-		pthread_mutex_lock(&Fichero);
-		writeLogMessage(idCliente, "Va a ser atendido.");
-		writeLogMessage(idTrabajador, "Va a atender a un cliente.");
-		pthread_mutex_unlock(&Fichero);
-
-		// Calcular tipo de atención
-		int tipoAtencion = calculaAleatorios(1, 10);
-
-		if (tipoAtencion == 1)
-		{
-			// Cliente mal identificado
-
-			// Atendemos al cliente...
-			sleep(calculaAleatorios(2, 6));
-
-			// Indicamos que finaliza la atención y el motivo en el log
-			pthread_mutex_lock(&Fichero);
-			writeLogMessage(idCliente, "Ha terminado de ser atendido. Estaba mal identificado.");
-			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
-			pthread_mutex_unlock(&Fichero);
-
-			// Marcar cliente como atendido
-			pthread_mutex_lock(&colaClientes);
-			listaClientes[posCliente].atendido = 2;
-			pthread_mutex_unlock(&colaClientes);
-		}
-		else if (tipoAtencion == 2)
-		{
-			// Cliente confundido
-
-			// Atendemos al cliente...
-			sleep(calculaAleatorios(1, 2));
-
-			// Indicamos que finaliza la atención y el motivo en el log
-			pthread_mutex_lock(&Fichero);
-			writeLogMessage(idCliente, "Ha dejado el sistema por confusión.");
-			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
-			pthread_mutex_unlock(&Fichero);
-
-			// Marcar cliente como confundido
-			pthread_mutex_lock(&colaClientes);
-			listaClientes[posCliente].atendido = 3;
-			pthread_mutex_unlock(&colaClientes);
-		}
-		else
-		{
-			// Cliente con todo en regla
-
-			// Atendemos al cliente...
-			sleep(calculaAleatorios(1, 4));
-
-			// Indicamos que finaliza la atención y el motivo en el log
-			pthread_mutex_lock(&Fichero);
-			writeLogMessage(idCliente, "Ha terminado de ser atendido. Todo en regla.");
-			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
-			pthread_mutex_unlock(&Fichero);
-
-			pthread_mutex_lock(&colaClientes);
-			listaClientes[posCliente].atendido = 2;
-			pthread_mutex_unlock(&colaClientes);
-		}
-	}
-}
+void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente);
 
 /**
  * Escribe en el puntero el identificador del próximo cliente que recibió atención domiciliaria y
- * establece la solicitud a 0 del cliente la solicitó.
+ * establece la solicitud a 0 del cliente que la solicitó.
  */
-void obtenerIDClienteAttDom(char *cadena)
-{
-	int i, count;
-	count = 0;
-	i = 0;
-	while (i < NCLIENTES)
-	{
-		if (listaClientes[i].solicitud == 1)
-		{
-			sprintf(cadena, "clired_%d", listaClientes[i].id);
-			pthread_mutex_lock(&colaClientes);
-			listaClientes[i].solicitud = 0;
-			pthread_mutex_unlock(&colaClientes);
-			break;
-		}
-		else
-		{
-			i++;
-		}
-	}
-}
-
-// TODO: Algunas funciones se han escrito al final en vez de aquí, sería conveniente moverlas.
+void obtenerIDClienteAttDom(char *cadena);
 
 /**MANEJADORAS DE SEÑAL*/
 
@@ -666,6 +394,8 @@ int main()
 
 	return 0;
 }
+
+/**FUNCIONES PRINCIPALES*/
 
 // GUILLERMO
 /**
@@ -1071,4 +801,294 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_unlock(&solicitudes);
 
 	} while (1);
+}
+
+/**FUNCIONES AUXILIARES*/
+
+void writeLogMessage(char *id, char *msg)
+{
+	//	Calculamos la hora actual
+	time_t now = time(0);
+	struct tm *tlocal = localtime(&now);
+	char stnow[25];
+	strftime(stnow, 25, "%d/%m/%y %H:%M:%S", tlocal);
+
+	// Escribimos en el log
+	logFile = fopen("registroTiempos.log", "a");
+	fprintf(logFile, "[%s] %s: %s\n", stnow, id, msg);
+	fclose(logFile);
+}
+
+int calculaAleatorios(int min, int max)
+{
+	return rand() % (max - min + 1) + min;
+}
+
+int NClientesRed()
+{
+	int nred = 0, i;
+
+	for (i = 0; i < NCLIENTES; i++)
+	{
+		if (listaClientes[i].tipo == 1)
+		{
+			nred++;
+		}
+	}
+
+	return nred;
+}
+
+void liberaCliente(int posicion)
+{
+	pthread_mutex_lock(&colaClientes);
+	listaClientes[posicion].id = 0;
+	listaClientes[posicion].atendido = 0;
+	listaClientes[posicion].prioridad = 0;
+	listaClientes[posicion].solicitud = 0;
+	listaClientes[posicion].tipo = 0;
+	pthread_mutex_unlock(&colaClientes);
+}
+
+int obtenerPosicionProximoCliente()
+{
+	// Variables que guardarán los datos del próximo cliente
+	int posProxCliente = -1;
+	int prioridadProxCliente = -1;
+	int tipoProxCliente = 0;
+	int idProxCliente = -1;
+
+	int cambiarCliente = 0;
+
+	for (int i = 0; i < NCLIENTES; i++)
+	{
+		cambiarCliente = 0;
+		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
+		{
+			// Es un cliente, no está vacío y puede ser atendido.
+			if (listaClientes[i].tipo == 1 && tipoProxCliente == 0)
+			{
+				// Tenemos un cliente de tipo preferido frente a uno no preferido. Lo cojemos sí o sí
+				// Se debe actualizar los campos por el nuevo cliente
+				cambiarCliente = 1;
+			}
+			else if (listaClientes[i].tipo == tipoProxCliente && tipoProxCliente == 1 || listaClientes[i].tipo == tipoProxCliente && tipoProxCliente == 0)
+			{
+				// Tenemos dos clientes del mismo tipo
+				if (listaClientes[i].prioridad > prioridadProxCliente)
+				{
+					// Tiene más prioridad, luego cambiamos el cliente
+					// Se debe actualizar los campos por el nuevo cliente
+					cambiarCliente = 1;
+				}
+				else if (listaClientes[i].prioridad == prioridadProxCliente)
+				{
+					// Tienen la misma prioridad, cogemos el de menor id (más tiempo esperado)
+					if (listaClientes[i].id < idProxCliente)
+					{
+						// Se debe actualizar los campos por el nuevo cliente
+						cambiarCliente = 1;
+					}
+				}
+			}
+		}
+
+		// Comprobar si se deben modificar los campos por este cliente
+		if (cambiarCliente == 1)
+		{
+			posProxCliente = i;
+			prioridadProxCliente = listaClientes[i].prioridad;
+			tipoProxCliente = listaClientes[i].tipo;
+			idProxCliente = listaClientes[i].id;
+		}
+	}
+
+	return posProxCliente;
+}
+
+int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
+{
+	// Variables que guardarán los datos del próximo cliente
+	int posProxCliente = -1;
+	int prioridadProxCliente = -1;
+	int idProxCliente = -1;
+
+	int cambiarCliente = 0;
+
+	for (int i = 0; i < NCLIENTES; i++)
+	{
+		cambiarCliente = 0;
+		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
+		{
+			// Es un cliente, no está vacío y puede ser atendido.
+			if (listaClientes[i].tipo == tipoCliente)
+			{
+				// Tenemos dos clientes del mismo tipo
+				if (listaClientes[i].prioridad > prioridadProxCliente)
+				{
+					// Tiene más prioridad, luego cambiamos el cliente
+					// Se debe actualizar los campos por el nuevo cliente
+					cambiarCliente = 1;
+				}
+				else if (listaClientes[i].prioridad == prioridadProxCliente)
+				{
+					// Tienen la misma prioridad, cogemos el de menor id (más tiempo esperado)
+					if (listaClientes[i].id < idProxCliente)
+					{
+						// Se debe actualizar los campos por el nuevo cliente
+						cambiarCliente = 1;
+					}
+				}
+			}
+		}
+
+		// Comprobar si se deben modificar los campos por este cliente
+		if (cambiarCliente == 1)
+		{
+			posProxCliente = i;
+			prioridadProxCliente = listaClientes[i].prioridad;
+			idProxCliente = listaClientes[i].id;
+		}
+	}
+
+	return posProxCliente;
+}
+
+void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
+{
+	if (posCliente == -1)
+	{
+		// No se ha encontrado un cliente al que atender, esperamos 2 segundos
+		sleep(2);
+	}
+	else
+	{
+		char *idTrabajador, *idCliente, *msg;
+		idTrabajador = malloc(sizeof(char) * 20);
+		idCliente = malloc(sizeof(char) * 20);
+		msg = malloc(sizeof(char) * 100);
+
+		// Definir id del trabajador según su tipo
+		int numID = 1;
+		if (tipoTrabajador == -1)
+		{
+			// Definir id del encargado
+			sprintf(idTrabajador, "encargado_%d", numID);
+		}
+		else if (tipoTrabajador == 0)
+		{
+			// Definir id de técnico
+			pthread_mutex_lock(&mutexTecnicos);
+			numID = listaTecnicos[posTrabajador].id;
+			pthread_mutex_unlock(&mutexTecnicos);
+			sprintf(idTrabajador, "tecnico_%d", numID);
+		}
+		else if (tipoTrabajador == 1)
+		{
+			// Definir id de responsable de reparaciones
+			pthread_mutex_lock(&mutexResponsables);
+			numID = listaRespReparaciones[posTrabajador].id;
+			pthread_mutex_unlock(&mutexResponsables);
+			sprintf(idTrabajador, "resprep_%d", numID);
+		}
+
+		// Definir id del cliente según su tipo
+		if (tipoCliente == 0)
+		{
+			// Definir id de cliente de red
+			numID = listaClientes[posCliente].id;
+			sprintf(idCliente, "cliapp_%d", numID);
+		}
+		else
+		{
+			// Definir id de cliente de app
+			numID = listaClientes[posCliente].id;
+			sprintf(idCliente, "clired_%d", numID);
+		}
+
+		// Indicamos que comienza el proceso de atención en el log
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage(idCliente, "Va a ser atendido.");
+		writeLogMessage(idTrabajador, "Va a atender a un cliente.");
+		pthread_mutex_unlock(&Fichero);
+
+		// Calcular tipo de atención
+		int tipoAtencion = calculaAleatorios(1, 10);
+
+		if (tipoAtencion == 1)
+		{
+			// Cliente mal identificado
+
+			// Atendemos al cliente...
+			sleep(calculaAleatorios(2, 6));
+
+			// Indicamos que finaliza la atención y el motivo en el log
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage(idCliente, "Ha terminado de ser atendido. Estaba mal identificado.");
+			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			pthread_mutex_unlock(&Fichero);
+
+			// Marcar cliente como atendido
+			pthread_mutex_lock(&colaClientes);
+			listaClientes[posCliente].atendido = 2;
+			pthread_mutex_unlock(&colaClientes);
+		}
+		else if (tipoAtencion == 2)
+		{
+			// Cliente confundido
+
+			// Atendemos al cliente...
+			sleep(calculaAleatorios(1, 2));
+
+			// Indicamos que finaliza la atención y el motivo en el log
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage(idCliente, "Ha dejado el sistema por confusión.");
+			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			pthread_mutex_unlock(&Fichero);
+
+			// Marcar cliente como confundido
+			pthread_mutex_lock(&colaClientes);
+			listaClientes[posCliente].atendido = 3;
+			pthread_mutex_unlock(&colaClientes);
+		}
+		else
+		{
+			// Cliente con todo en regla
+
+			// Atendemos al cliente...
+			sleep(calculaAleatorios(1, 4));
+
+			// Indicamos que finaliza la atención y el motivo en el log
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage(idCliente, "Ha terminado de ser atendido. Todo en regla.");
+			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			pthread_mutex_unlock(&Fichero);
+
+			pthread_mutex_lock(&colaClientes);
+			listaClientes[posCliente].atendido = 2;
+			pthread_mutex_unlock(&colaClientes);
+		}
+	}
+}
+
+void obtenerIDClienteAttDom(char *cadena)
+{
+	int i, count;
+	count = 0;
+	i = 0;
+	while (i < NCLIENTES)
+	{
+		if (listaClientes[i].solicitud == 1)
+		{
+			sprintf(cadena, "clired_%d", listaClientes[i].id);
+			pthread_mutex_lock(&colaClientes);
+			listaClientes[i].solicitud = 0;
+			pthread_mutex_unlock(&colaClientes);
+			break;
+		}
+		else
+		{
+			i++;
+		}
+	}
 }
