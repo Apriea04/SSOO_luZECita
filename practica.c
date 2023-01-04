@@ -62,12 +62,40 @@ FILE *logFile;
 
 /**DECLARACIÓN DE FUNCIONES PRINCIPALES*/
 
+// GUILLERMO
+/**
+ * Introduce un cliente en la cola de clientes cuando se recibe una señal.
+ * Cuando aparece un cliente, lo introduce en la primera posición libre que encuentre (Cuando  id==0).
+ * Si no hay posiciones libres, no se hace nada y se ignora el cliente.
+ *
+ * @param tipo
+ */
 void nuevoCliente(int tipo);
 
+// ÁLVARO
+/**
+ * Recibe un puntero a su estructura cliente de la cola de clientes
+ * @param cliente
+ */
 void accionesCliente(int posicion);
 
+// DANIEL
+/**
+ * LLeva a cabo las funciones de un técnico o
+ * responsable de reparaciones
+ *
+ * tipoTrabajador (int): entero que representa si un trabajador
+ * 	                  se encarga de la app o de la red
+ * posTrabajador (int): entero con la posición en la lista del trabajador
+ * @param tipoTrabajador
+ * @param posTrabajador
+ */
 void accionesTecnico(int tipoTrabajador, int posTrabajador);
 
+// MARIO
+/**
+ * LLeva a cabo las funciones de un encargado
+ */
 void accionesEncargado();
 
 void accionesTecnicoDomiciliario();
@@ -193,8 +221,10 @@ void *Cliente(void *arg)
 int main()
 {
 	// Limpiar log
+	pthread_mutex_lock(&Fichero);
 	logFile = fopen("registroTiempos.log", "w");
 	fclose(logFile);
+	pthread_mutex_unlock(&Fichero);
 
 	// Definir manejadoras para señales
 	struct sigaction sig;
@@ -397,14 +427,6 @@ int main()
 
 /**FUNCIONES PRINCIPALES*/
 
-// GUILLERMO
-/**
- * Introduce un cliente en la cola de clientes cuando se recibe una señal.
- * Cuando aparece un cliente, lo introduce en la primera posición libre que encuentre (Cuando  id==0).
- * Si no hay posiciones libres, no se hace nada y se ignora el cliente.
- *
- * @param tipo
- */
 void nuevoCliente(int tipo)
 {
 	int i = 0;
@@ -468,12 +490,6 @@ void nuevoCliente(int tipo)
 	pthread_mutex_unlock(&colaClientes);
 }
 
-// ÁLVARO
-
-/**
- * Recibe un puntero a su estructura cliente de la cola de clientes
- * @param cliente
- */
 void accionesCliente(int posicion)
 {
 	struct Cliente *cliente = malloc(sizeof(struct Cliente));
@@ -643,17 +659,6 @@ void accionesCliente(int posicion)
 	pthread_exit(0);
 }
 
-// DANIEL
-/**
- * LLeva a cabo las funciones de un técnico o
- * responsable de reparaciones
- *
- * tipoTrabajador (int): entero que representa si un trabajador
- * 	                  se encarga de la app o de la red
- * posTrabajador (int): entero con la posición en la lista del trabajador
- * @param tipoTrabajador
- * @param posTrabajador
- */
 void accionesTecnico(int tipoTrabajador, int posTrabajador)
 {
 	int posCliente;
@@ -721,10 +726,6 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 	} while (1);
 }
 
-// MARIO
-/**
- * LLeva a cabo las funciones de un encargado
- */
 void accionesEncargado()
 {
 	int posCliente;
