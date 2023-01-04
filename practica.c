@@ -14,7 +14,6 @@
 #define NTECDOMICILIARIA 1
 #define NSOLICDOMINECESARIAS 4 // Numero de solicitudes domciliarias necesarias para comenzar con esa atención
 
-
 /**DECLARACIONES GLOBALES*/
 
 // Mutex
@@ -193,7 +192,7 @@ void printWelcome();
 
 /**
  * Manejadora de señal que crea un nuevo cliente de tipo APP. Responde a la señal SIGUSR1.
- * @param sig 
+ * @param sig
  */
 void handlerClienteApp(int sig)
 {
@@ -202,18 +201,18 @@ void handlerClienteApp(int sig)
 
 /**
  * Manejadorea de señal que crea un nuevo cliente de tipo RED. Responde a la señal SIGUSR2.
- * @param sig 
+ * @param sig
  */
 void handlerClienteRed(int sig)
 {
 	nuevoCliente(1);
 }
 
-void handlerEmpty(int sig){}
+void handlerEmpty(int sig) {}
 
 /**
  * Manejadora de señal que finaliza de manera ordenada el programa. Responde a la señal SIGINT.
- * @param s 
+ * @param s
  */
 void handlerTerminar(int s)
 {
@@ -238,15 +237,15 @@ void handlerTerminar(int s)
 		exit(-1);
 	}
 	printf("Hola SIGINT\n");
-	//printf("Total de clientes: %d\n", contadorApp + contadorRed);
+	// printf("Total de clientes: %d\n", contadorApp + contadorRed);
 }
 
 /**CÓDIGOS DE EJECUCIÓN DE HILOS*/
 
 /**
- * Código ejecutado por los hilos de técnicos. 
- * @param arg 
- * @return void* 
+ * Código ejecutado por los hilos de técnicos.
+ * @param arg
+ * @return void*
  */
 void *Tecnico(void *arg)
 {
@@ -265,8 +264,8 @@ void *Tecnico(void *arg)
 
 /**
  * Código ejecutado por los hilos de responsables de reparaciones.
- * @param arg 
- * @return void* 
+ * @param arg
+ * @return void*
  */
 void *Responsable(void *arg)
 {
@@ -285,8 +284,8 @@ void *Responsable(void *arg)
 
 /**
  * Código ejecutado por el hilo de encargado.
- * @param arg 
- * @return void* 
+ * @param arg
+ * @return void*
  */
 void *Encargado(void *arg)
 {
@@ -306,8 +305,8 @@ void *Encargado(void *arg)
 
 /**
  * Código ejecutado por el técnico de atención domiciliaria.
- * @param arg 
- * @return void* 
+ * @param arg
+ * @return void*
  */
 void *AtencionDomiciliaria(void *arg)
 {
@@ -325,9 +324,9 @@ void *AtencionDomiciliaria(void *arg)
 }
 
 /**
- * Código ejecutado por los clientes entrantes al sistema. 
- * @param arg 
- * @return void* 
+ * Código ejecutado por los clientes entrantes al sistema.
+ * @param arg
+ * @return void*
  */
 void *Cliente(void *arg)
 {
@@ -335,7 +334,6 @@ void *Cliente(void *arg)
 	accionesCliente(index);
 	free(arg);
 }
-
 
 /**MAIN*/
 
@@ -766,8 +764,6 @@ void accionesCliente(int posicion)
 			}
 			pthread_mutex_unlock(&solicitudes);
 
-			
-
 			pthread_mutex_lock(&Fichero);
 			writeLogMessage(id, "Recibió atención domiciliaria.");
 			pthread_mutex_unlock(&Fichero);
@@ -787,8 +783,6 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 	int posCliente;
 	int tipoCliente;
 
-	//TODO cambiar estado de disponibilidad del trabajador
-
 	// Bucle en el que el trabajador va atendiendo a los clientes que le lleguen
 	do
 	{
@@ -804,7 +798,15 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 			// El técnico descansa 5 segundos por cada 5 clientes
 			if (numClientesAtendidos % 5 == 0)
 			{
+				pthread_mutex_lock(&mutexTecnicos);
+				listaTecnicos[posTrabajador].disponible = 0;
+				pthread_mutex_unlock(&mutexTecnicos);
+
 				sleep(5);
+
+				pthread_mutex_lock(&mutexTecnicos);
+				listaTecnicos[posTrabajador].disponible = 1;
+				pthread_mutex_unlock(&mutexTecnicos);
 			}
 		}
 		else if (tipoTrabajador == 1)
@@ -817,7 +819,15 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 			// El responsable de reparaciones descansa 6 segundos por cada 6 clientes
 			if (numClientesAtendidos % 6 == 0)
 			{
+				pthread_mutex_lock(&mutexTecnicos);
+				listaRespReparaciones[posTrabajador].disponible = 0;
+				pthread_mutex_unlock(&mutexTecnicos);
+
 				sleep(6);
+
+				pthread_mutex_lock(&mutexTecnicos);
+				listaRespReparaciones[posTrabajador].disponible = 1;
+				pthread_mutex_unlock(&mutexTecnicos);
 			}
 		}
 
@@ -954,7 +964,12 @@ void accionesTecnicoDomiciliario()
 			sleep(1);
 			printf("Cliente %d\n", i);
 			sprintf(cadena1, "Atendido cliente ");
+<<<<<<< HEAD
 			obtenerIDClienteAttDom(cadena2);
+=======
+			posicionCliente = obtenerIDClienteAttDom(cadena2);
+			// listaClientes[posicionCliente].solicitud = 0;
+>>>>>>> refs/remotes/origin/main
 			strcat(cadena1, cadena2);
 
 			pthread_mutex_lock(&Fichero);
@@ -973,7 +988,11 @@ void accionesTecnicoDomiciliario()
 
 		// Damos aviso a los que esperaban por atención domiciliaria
 		pthread_mutex_lock(&solicitudes);
+<<<<<<< HEAD
 		for(i = 0; i < totalSolicitudes; i++)
+=======
+		for (i = 0; i < NSOLICDOMINECESARIAS; i++)
+>>>>>>> refs/remotes/origin/main
 		{
 			printf("Signal %d\n", i);
 			pthread_cond_signal(&condSolicitudesDomicilio);
@@ -1136,6 +1155,21 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 
 void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
 {
+
+	//Establecer como no disponible al trabajador segun tipo
+	if (tipoTrabajador == 0)
+	{
+		pthread_mutex_lock(&mutexTecnicos);
+		listaTecnicos[posTrabajador].disponible = 0;
+		pthread_mutex_unlock(&mutexTecnicos);
+	}
+	else if (tipoTrabajador == 1)
+	{
+		pthread_mutex_lock(&mutexTecnicos);
+		listaRespReparaciones[posTrabajador].disponible = 0;
+		pthread_mutex_unlock(&mutexTecnicos);
+	}
+
 	if (posCliente == -1)
 	{
 		// No se ha encontrado un cliente al que atender, esperamos 2 segundos
@@ -1249,6 +1283,20 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 			pthread_mutex_unlock(&colaClientes);
 		}
 	}
+
+	//Establecer como disponible al trabajador segun tipo
+	if (tipoTrabajador == 0)
+	{
+		pthread_mutex_lock(&mutexTecnicos);
+		listaTecnicos[posTrabajador].disponible = 1;
+		pthread_mutex_unlock(&mutexTecnicos);
+	}
+	else if (tipoTrabajador == 1)
+	{
+		pthread_mutex_lock(&mutexTecnicos);
+		listaRespReparaciones[posTrabajador].disponible = 1;
+		pthread_mutex_unlock(&mutexTecnicos);
+	}
 }
 
 void obtenerIDClienteAttDom(char *cadena)
@@ -1260,7 +1308,7 @@ void obtenerIDClienteAttDom(char *cadena)
 	{
 		if (listaClientes[i].solicitud == 1)
 		{
-			
+
 			sprintf(cadena, "clired_%d", listaClientes[i].id);
 			pthread_mutex_lock(&colaClientes);
 			listaClientes[i].solicitud = 0;
@@ -1317,5 +1365,4 @@ void printWelcome()
 	printf("=====================================================================\n");
 	printf("=======BIENVENIDO AL SISTEMA DE GESTIÓN DE AVERÍAS luZECita==========\n");
 	printf("=====================================================================\n");
-
 }
