@@ -220,12 +220,6 @@ void *Cliente(void *arg)
 
 int main()
 {
-	// Limpiar log
-	pthread_mutex_lock(&Fichero);
-	logFile = fopen("registroTiempos.log", "w");
-	fclose(logFile);
-	pthread_mutex_unlock(&Fichero);
-
 	// Definir manejadoras para señales
 	struct sigaction sig;
 	int i;
@@ -261,6 +255,12 @@ int main()
 
 	// Inicialización de variables condición
 	pthread_cond_init(&condSolicitudesDomicilio, NULL);
+
+	// Limpiar log
+	pthread_mutex_lock(&Fichero);
+	logFile = fopen("registroTiempos.log", "w");
+	fclose(logFile);
+	pthread_mutex_unlock(&Fichero);
 
 	// Inicialización de contadores
 	contadorApp = 0;
