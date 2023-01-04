@@ -734,18 +734,55 @@ void accionesEncargado()
 	// Bucle en el que el encargado va atendiendo a los clientes que le lleguen
 	do
 	{
-		// Obtener posición del cliente a atender según el tipo de trabajador
-		pthread_mutex_lock(&colaClientes);
-		posCliente = obtenerPosicionProximoCliente();
-		// Obtener tipo del cliente en cuestión
-		tipoCliente = listaClientes[posCliente].tipo;
-		// El cliente pasa a estar en proceso de ser atendido
-		listaClientes[posCliente].atendido = 1;
-		pthread_mutex_unlock(&colaClientes);
+		// Comprobar si los técnicos o responsables de reparaciones están ocupados
+		if (hayTecnicosDisponibles() == 0 && hayRespReparacionesDisponibles() == 0)
+		{
+			// Tanto técnicos como responsables de reparaciones están ocupados
 
-		// Atender al cliente como encargado
+			// Obtener posición del primer cliente libre
+			pthread_mutex_lock(&colaClientes);
+			posCliente = obtenerPosicionProximoCliente();
+			// Obtener tipo del cliente en cuestión
+			tipoCliente = listaClientes[posCliente].tipo;
+			// El cliente pasa a estar en proceso de ser atendido
+			listaClientes[posCliente].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+		}
+
+		else if (hayTecnicosDisponibles() == 0)
+		{
+			// No hay técnicos disponibles, el encargado atiende al próximo cliente de su tipo
+
+			// Obtener posición de cliente de tipo APP
+			pthread_mutex_lock(&colaClientes);
+			posCliente = obtenerPosicionProximoClienteSegunTipo(0);
+			// Obtener tipo del cliente en cuestión
+			tipoCliente = listaClientes[posCliente].tipo;
+			// El cliente pasa a estar en proceso de ser atendido
+			listaClientes[posCliente].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+		}
+		else if (hayRespReparacionesDisponibles() == 0)
+		{
+			// No hay responsables de reparaciones disponibles, el encargado atiende al próximo cliente de su tipo
+
+			// Obtener posición de cliente de tipo RED
+			pthread_mutex_lock(&colaClientes);
+			posCliente = obtenerPosicionProximoClienteSegunTipo(1);
+			// Obtener tipo del cliente en cuestión
+			tipoCliente = listaClientes[posCliente].tipo;
+			// El cliente pasa a estar en proceso de ser atendido
+			listaClientes[posCliente].atendido = 1;
+			pthread_mutex_unlock(&colaClientes);
+		}
+		else
+		{
+			// No hay trabajadores ocupados
+			continue;
+		}
+
+		// Atender al cliente como encargado si hay trabajadores ocupados
 		atenderCliente(-1, 1, tipoCliente, posCliente);
-
 	} while (1);
 }
 
