@@ -8,7 +8,7 @@ case $1 in
 2) echo "Señal SIGUSR2 (Cliente RED)"
     ps axf | grep "./practica" | grep -v grep | awk '{print "kill -12 " $1}' |sh;;
 3) echo "Múltiples señales"
-    for i in {1..30}
+    for i in {1..3000}
     do
         ps axf | grep "./practica" | grep -v grep | awk '{print "kill -10 " $1}' |sh
         ps axf | grep "./practica" | grep -v grep | awk '{print "kill -12 " $1}' |sh
