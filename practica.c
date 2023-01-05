@@ -128,7 +128,7 @@ void accionesTecnicoDomiciliario();
  * @param id puntero que contiene la cadena de caracteres con el identificador de un hilo.
  * @param msg puntero que contiene la cadena de caracteres con el mensaje a escribir en el log.
  */
-void writeLogMessage(char *id, char *msg);
+void writeLogMessage(char *id, char *msg){}
 
 /**
  * Calcula un número aleatorio entre el mínimo y el máximo espeficicados.
@@ -477,6 +477,32 @@ int main(int argc, char *argv[])
 		{
 			// Modificar número de técnicos
 			numTecnicos = atoi(argv[2]);
+
+			// Cambiar mensaje del log
+			sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
+		}
+
+		// Escribir log con el cambio simple (argc = 3)
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage("Sistema", msg);
+		pthread_mutex_unlock(&Fichero);
+
+		// Comprobar si el cambio es completo (argc = 5)
+		if (argc == 5 && atoi(argv[4]) > 0)
+		{
+			// Comprobar si el tercer argumento indica si son clientes o técnicos
+			if (strcmp(argv[3], "--clientes") == 0)
+			{
+				// Modificar número de clientes
+				numClientes = atoi(argv[4]);
+
+				// Cambiar mensaje del log
+				sprintf(msg, "Se ha cambiado el número máximo de clientes a %d.", numClientes);
+			}
+			else if (strcmp(argv[3], "--tecnicos") == 0)
+			{
+				// Modificar número de técnicos
+				numTecnicos = atoi(argv[4]);
 
 			// Cambiar mensaje del log
 			sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
