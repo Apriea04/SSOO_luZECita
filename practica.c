@@ -16,6 +16,8 @@
 
 /**DECLARACIONES GLOBALES*/
 
+// TODO imprimir en log descansos de trabajadores
+
 // Mutex
 pthread_mutex_t Fichero, colaClientes, mutexTecnicos, mutexResponsables, solicitudes;
 
@@ -635,6 +637,7 @@ void accionesCliente(int posicion)
 	if (tipo == 0)
 	{
 		// Cliente app
+
 		sprintf(id, "cliapp_%d", listaClientes[posicion].id);
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Cliente de tipo APP acaba de entrar al sistema.");
@@ -683,9 +686,9 @@ void accionesCliente(int posicion)
 			// ¿Se cansó de esperar?
 			if (tiempoEsperando >= 8 && porcentaje <= 20)
 			{
-				sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
+				// sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
 				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, msg);
+				writeLogMessage(id, "Se cansó de esperar.");
 				pthread_mutex_unlock(&Fichero);
 
 				seVa = 1;
@@ -776,12 +779,13 @@ void accionesCliente(int posicion)
 	}
 
 	// El cliente se va
-	free(id);
-	free(msg);
+
 	liberaCliente(posicion);
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Se va tras haber sido atendido");
 	pthread_mutex_unlock(&Fichero);
+	free(id);
+	free(msg);
 	pthread_exit(0);
 }
 
