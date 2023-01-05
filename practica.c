@@ -305,7 +305,7 @@ void *Responsable(void *arg)
  * Código ejecutado por el hilo de encargado.
  *
  * @param arg puntero del ID del encargado.
- * @return void*
+ * @return void
  */
 void *Encargado(void *arg)
 {
@@ -694,7 +694,7 @@ void accionesCliente(int posCliente)
 			int porcentaje = calculaAleatorios(0, 100);
 
 			// ¿Se cansó de esperar?
-			if (tiempoEsperando >= 8 && porcentaje <= 20)
+			if (tiempoEsperando % 8 == 0 && porcentaje <= 20)
 			{
 				sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
 				pthread_mutex_lock(&Fichero);
@@ -912,18 +912,18 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 			}
 		}
 
-		// Obtener posición del cliente a atender según el tipo de trabajador
-		pthread_mutex_lock(&mutexColaClientes);
-		posCliente = obtenerPosicionProximoClienteSegunTipo(tipoTrabajador);
-		// Obtener tipo del cliente en cuestión
-		tipoCliente = listaClientes[posCliente].tipo;
-		// El cliente pasa a estar en proceso de ser atendido
-		listaClientes[posCliente].atendido = 1;
-		pthread_mutex_unlock(&mutexColaClientes);
-
-		// Bucle hasta atender a un cliente TODO NO FUNCIONA CORRECTAMENTE
-		while (atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente) != 1)
-			;
+		// Bucle hasta atender a un cliente
+		do
+		{
+			// Obtener posición del cliente a atender según el tipo de trabajador
+			pthread_mutex_lock(&mutexColaClientes);
+			posCliente = obtenerPosicionProximoClienteSegunTipo(tipoTrabajador);
+			// Obtener tipo del cliente en cuestión
+			tipoCliente = listaClientes[posCliente].tipo;
+			// El cliente pasa a estar en proceso de ser atendido
+			listaClientes[posCliente].atendido = 1;
+			pthread_mutex_unlock(&mutexColaClientes);
+		} while (atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente) != 1 && finalizar == 0);
 
 		// Aumentar número de clientes atendidos
 		if (tipoTrabajador == 0)
@@ -1030,6 +1030,7 @@ void accionesTecnicoDomiciliario()
 			if (finalizar == 1)
 			{
 				totalSolicitudes = numSolicitudesDomicilio;
+				sleep(4);
 				break;
 			}
 		}
