@@ -20,7 +20,7 @@
 // TODO la salida controlada a veces falla
 
 // Mutex
-pthread_mutex_t Fichero, mutexColaClientes, mutexTecnicos, mutexRespReparaciones, mutexSolicitudesDomicilio;
+pthread_mutex_t Fichero, mutexColaClientes, mutexTecnicos, mutexRespReparaciones, mutexSolicitudesDomicilio, mutexViaje;
 
 // Variables condición
 pthread_cond_t condSolicitudesDomicilio;
@@ -179,7 +179,7 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
  * Escribe en el puntero el identificador del próximo cliente que recibió atención domiciliaria y
  * establece la solicitud a 0 del cliente que la solicitó.
  */
-void obtenerIDClienteAttDom(char *cadena);
+void atenderClienteAttDom(char *cadena);
 
 /**
  * Devuelve 0 si no hay técnicos disponibles, en caso contrario, devuelve el número de
@@ -218,7 +218,7 @@ void handlerClienteRed(int sig)
 	nuevoCliente(1);
 }
 
-void handlerEmpty(int sig) {}
+void handlerVacio(int sig) {}
 
 /**
  * Manejadora de señal que finaliza de manera ordenada el programa. Responde a la señal SIGINT.
@@ -228,26 +228,26 @@ void handlerTerminar(int s)
 {
 	finalizar = 1;
 
-	pthread_mutex_lock(&mutexSolicitudesDomicilio);
 	printf("Enviando señal\n");
+	pthread_mutex_lock(&mutexSolicitudesDomicilio);
 	pthread_cond_signal(&condSolicitudesDomicilio);
 	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
-	sig.sa_handler = handlerEmpty;
+	sig.sa_handler = handlerVacio;
 	if (sigaction(SIGUSR1, &sig, NULL) == -1)
 	{
 		perror("[ERROR] Error en la llamada a sigaction.");
 		exit(-1);
 	}
 
-	sig.sa_handler = handlerEmpty;
+	sig.sa_handler = handlerVacio;
 	if (sigaction(SIGUSR2, &sig, NULL) == -1)
 	{
 		perror("[ERROR] Error en la llamada a sigaction.");
 		exit(-1);
 	}
 
-	sig.sa_handler = handlerEmpty;
+	sig.sa_handler = handlerVacio;
 	if (sigaction(SIGINT, &sig, NULL) == -1)
 	{
 		perror("[ERROR] Error en la llamada a sigaction.");
@@ -314,11 +314,11 @@ void *Encargado(void *arg)
 	char *id;
 	id = malloc(sizeof(char) * 30);
 
-	sprintf(id, "resprep_%d", index + 1);
+	sprintf(id, "encargado_%d", index);
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Ha finalizado su trabajo.");
 	pthread_mutex_unlock(&Fichero);
-	printf("Encargado %d ha finalizado su trabajo.\n", index + 1);
+	printf("Encargado %d ha finalizado su trabajo.\n", index);
 	free(id);
 	free(arg);
 }
@@ -393,6 +393,7 @@ int main()
 	pthread_mutex_init(&mutexTecnicos, NULL);
 	pthread_mutex_init(&mutexRespReparaciones, NULL);
 	pthread_mutex_init(&mutexSolicitudesDomicilio, NULL);
+	pthread_mutex_init(&mutexViaje, NULL);
 
 	// Inicialización de variables condición
 	pthread_cond_init(&condSolicitudesDomicilio, NULL);
@@ -564,6 +565,7 @@ int main()
 	pthread_mutex_destroy(&mutexTecnicos);
 	pthread_mutex_destroy(&mutexRespReparaciones);
 	pthread_mutex_destroy(&mutexSolicitudesDomicilio);
+	pthread_mutex_destroy(&mutexViaje);
 
 	return 0;
 }
@@ -734,7 +736,7 @@ void accionesCliente(int posCliente)
 	if (tipo == 1)
 	{
 		// Si es de tipo red
-		if (calculaAleatorios(0, 10) <= 3)
+		if (calculaAleatorios(0, 10) <= 3 && finalizar == 0)
 		{
 			// Quiere atención domiciliaria
 
@@ -752,10 +754,13 @@ void accionesCliente(int posCliente)
 				}
 			} while (sol > NSOLICDOMINECESARIAS);
 
+			// Si está el técnico de viaje, esperamos a que finalice el mismo
+			pthread_mutex_lock(&mutexViaje);
 			// Ya podemos esperar a ser atendidos
 			pthread_mutex_lock(&Fichero);
 			writeLogMessage(id, "Esperando a ser atendido en domicilio.");
 			pthread_mutex_unlock(&Fichero);
+			pthread_mutex_unlock(&mutexViaje);
 
 			pthread_mutex_lock(&mutexColaClientes);
 			listaClientes[posCliente].solicitudDomicilio = 1;
@@ -1021,7 +1026,7 @@ void accionesTecnicoDomiciliario()
 	{
 		// Comprobamos que el número de solicitudes domiciliarias. Bloqueamos si es menor que 4
 		pthread_mutex_lock(&mutexSolicitudesDomicilio);
-		while (numSolicitudesDomicilio < NSOLICDOMINECESARIAS)
+		while (numSolicitudesDomicilio < totalSolicitudes)
 		{
 			// Espera a que el número de solicitudes sea 4
 			pthread_cond_wait(&condSolicitudesDomicilio, &mutexSolicitudesDomicilio);
@@ -1030,12 +1035,12 @@ void accionesTecnicoDomiciliario()
 			if (finalizar == 1)
 			{
 				totalSolicitudes = numSolicitudesDomicilio;
-				sleep(4);
-				break;
+				// break;
 			}
 		}
 		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
+		pthread_mutex_lock(&mutexViaje);
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Comenzando atención domiciliaria.");
 		pthread_mutex_unlock(&Fichero);
@@ -1044,8 +1049,9 @@ void accionesTecnicoDomiciliario()
 		for (i = 0; i < totalSolicitudes; i++)
 		{
 			sleep(1);
+			printf("Atendido cliente %d\n", i);
 			sprintf(cadena1, "Atendido cliente ");
-			obtenerIDClienteAttDom(cadena2);
+			atenderClienteAttDom(cadena2);
 			strcat(cadena1, cadena2);
 
 			pthread_mutex_lock(&Fichero);
@@ -1059,8 +1065,9 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(id, "Atención domiciliaria finalizada.\n");
+		writeLogMessage(id, "Atención domiciliaria finalizada.");
 		pthread_mutex_unlock(&Fichero);
+		pthread_mutex_unlock(&mutexViaje);
 
 		// Damos aviso a los que esperaban por atención domiciliaria
 		pthread_mutex_lock(&mutexSolicitudesDomicilio);
@@ -1367,7 +1374,7 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 	return 1;
 }
 
-void obtenerIDClienteAttDom(char *cadena)
+void atenderClienteAttDom(char *cadena)
 {
 	int i, count;
 	count = 0;
