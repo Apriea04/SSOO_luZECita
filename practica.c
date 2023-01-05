@@ -367,28 +367,6 @@ void *Cliente(void *arg)
 
 int main(int argc, char *argv[])
 {
-
-	if (argc != 0 && argc == 3)
-	{
-		int clientes = atoi(argv[1]);
-		printf("Clientes %d", clientes);
-		int tecnicos = atoi(argv[2]);
-		printf("Tecnicos %d", tecnicos);
-
-		nclientes = clientes;
-		ntecnicos = tecnicos;
-
-		pthread_mutex_lock(&Fichero);
-		writeLogMessage("Sistema", "Se han cambiado las varibles globales");
-		pthread_mutex_unlock(&Fichero);
-	}
-	else
-	{
-		pthread_mutex_lock(&Fichero);
-		writeLogMessage("Sistema", "Se usaran variable globales estandar");
-		pthread_mutex_unlock(&Fichero);
-	}
-
 	printWelcome();
 
 	// Definir manejadoras para señales
@@ -430,14 +408,39 @@ int main(int argc, char *argv[])
 	pthread_mutex_init(&mutexSolicitudesDomicilio, NULL);
 	pthread_mutex_init(&mutexViaje, NULL);
 
-	// Inicialización de variables condición
-	pthread_cond_init(&condSolicitudesDomicilio, NULL);
-
 	// Limpiar log
 	pthread_mutex_lock(&Fichero);
 	logFile = fopen("registroTiempos.log", "w");
 	fclose(logFile);
 	pthread_mutex_unlock(&Fichero);
+
+	// Recibir paramentros del programama
+	if (argc == 2)
+	{
+		nclientes = atoi(argv[1]);
+
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage("Sistema", "Se ha cambiado el número máximo de clientes.");
+		pthread_mutex_unlock(&Fichero);
+	}
+	else if (argc == 3)
+	{
+		nclientes = atoi(argv[1]);
+		ntecnicos = atoi(argv[2]);
+
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage("Sistema", "Se ha cambiado el número maximos de clientes y tecnicos");
+		pthread_mutex_unlock(&Fichero);
+	}
+
+	// Inicialización de hilos
+	hilosTecnicos = malloc((sizeof(pthread_t)) * ntecnicos);
+	hilosRespReparaciones = malloc((sizeof(pthread_t) * nrespreparaciones));
+	hilosEncargados = malloc((sizeof(pthread_t) * nencargados));
+	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * ntecdomiciliaria));
+
+	// Inicialización de variables condición
+	pthread_cond_init(&condSolicitudesDomicilio, NULL);
 
 	// Inicialización de contadores
 	contadorApp = 0;
