@@ -421,23 +421,60 @@ int main(int argc, char *argv[])
 	fclose(logFile);
 	pthread_mutex_unlock(&Fichero);
 
-	// Recibir paramentros del programama
-	if (argc == 2)
+	char *msg;
+	msg = malloc(sizeof(char) * 50);
+	// Recibir parámetros del programa
+	if (argc >= 3 && atoi(argv[2]) > 0)
 	{
-		numClientes = atoi(argv[1]);
+		// Comprobar si el primer argumento indica si son clientes o técnicos
+		if (strcmp(argv[1], "--clientes") == 0)
+		{
+			// Modificar número de clientes
+			numClientes = atoi(argv[2]);
 
-		pthread_mutex_lock(&Fichero);
-		writeLogMessage("Sistema", "Se ha cambiado el número máximo de clientes.");
-		pthread_mutex_unlock(&Fichero);
-	}
-	else if (argc == 3)
-	{
-		numClientes = atoi(argv[1]);
-		numTecnicos = atoi(argv[2]);
+			// Cambiar mensaje del log
+			sprintf(msg, "Se ha cambiado el número máximo de clientes a %d.", numClientes);
+		}
+		else if (strcmp(argv[1], "--tecnicos") == 0)
+		{
+			// Modificar número de técnicos
+			numTecnicos = atoi(argv[2]);
 
+			// Cambiar mensaje del log
+			sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
+		}
+
+		// Escribir log con el cambio simple (argc = 3)
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage("Sistema", "Se ha cambiado el número maximos de clientes y tecnicos");
+		writeLogMessage("Sistema", msg);
 		pthread_mutex_unlock(&Fichero);
+
+		// Comprobar si el cambio es completo (argc = 5)
+		if (argc == 5 && atoi(argv[4]) > 0)
+		{
+			// Comprobar si el tercer argumento indica si son clientes o técnicos
+			if (strcmp(argv[3], "--clientes") == 0)
+			{
+				// Modificar número de clientes
+				numClientes = atoi(argv[4]);
+
+				// Cambiar mensaje del log
+				sprintf(msg, "Se ha cambiado el número máximo de clientes a %d.", numClientes);
+			}
+			else if (strcmp(argv[3], "--tecnicos") == 0)
+			{
+				// Modificar número de técnicos
+				numTecnicos = atoi(argv[4]);
+
+				// Cambiar mensaje del log
+				sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
+			}
+
+			// Escribir log con el segundo cambio
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage("Sistema", msg);
+			pthread_mutex_unlock(&Fichero);
+		}
 	}
 
 	// Inicialización de hilos

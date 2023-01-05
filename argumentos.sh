@@ -7,7 +7,10 @@ es_numero="^[0-9]+$"
 while true
 do
 
-echo "¿Cuántos argumentos desea enviar: 1 o 2?"
+echo "¿Qué quieres enviar como parámetro al programa?"
+echo "(1) Número máximo de clientes"
+echo "(2) Número máximo de técnicos"
+echo "(3) Ambos"
 
 read option
 
@@ -18,14 +21,27 @@ read clientes
 
 if [[ $clientes =~ $es_numero ]]
 then
-./practica $clientes
+./practica --clientes $clientes
 exit 0
 else
 echo "ERROR: Debes introducir un número"
 fi
 ;;
 
-2) 
+2)
+echo "Número máximo de técnicos"
+read tecnicos
+
+if [[ $tecnicos =~ $es_numero ]]
+then
+./practica --tecnicos $tecnicos
+exit 0
+else
+echo "ERROR: Debes introducir un número"
+fi
+;;
+
+3) 
 echo "Número máximo de clientes"
 read clientes
 
@@ -34,7 +50,7 @@ read tecnicos
 
 if [[ $clientes =~ $es_numero ]] || [[ $tecnicos =~ $es_numero ]]
 then
-./practica $clientes $tecnicos
+./practica --clientes $clientes --tecnicos $tecnicos
 exit 0
 else
 echo "ERROR: Debes introducir un número"
