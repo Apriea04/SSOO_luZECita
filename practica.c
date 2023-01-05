@@ -602,23 +602,6 @@ void nuevoCliente(int tipoCliente)
 
 			id = malloc(sizeof(char) * 30); // Identificador único de cada cliente
 
-			// Inicializamos hilo cliente de tipo APP y escribimos el hecho en el log
-			if (listaClientes[i].tipo == 0)
-			{
-				sprintf(id, "cliapp_%d", listaClientes[i].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Nuevo cliente de tipo APP ha entrado en la cola.");
-				pthread_mutex_unlock(&Fichero);
-			}
-			// Inicializamos hilo cliente de tipo RED y escribimos el hecho en el log
-			else
-			{
-				sprintf(id, "clired_%d", listaClientes[i].id);
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Nuevo cliente de tipo RED ha entrado en cola.");
-				pthread_mutex_unlock(&Fichero);
-			}
-
 			if (pthread_create(&cliente, NULL, &Cliente, &i) != 0)
 			{
 				perror("[ERROR] Error al introducir un nuevo cliente");
@@ -633,13 +616,11 @@ void nuevoCliente(int tipoCliente)
 
 void accionesCliente(int posCliente)
 {
-	printf("Nuevo cliente en el sistema. Posición: %d\n", posCliente);
-
 	char *id, *msg;
 	int seVa = 0; // en principio, el cliente no se va.
 
 	id = malloc(sizeof(char) * 30);
-	msg = malloc(sizeof(char) * 50);
+	msg = malloc(sizeof(char) * 100);
 
 	pthread_mutex_lock(&mutexColaClientes); // TODO duda ¿Proteger?
 	int tipo = listaClientes[posCliente].tipo;
@@ -650,7 +631,7 @@ void accionesCliente(int posCliente)
 		// Cliente app
 		sprintf(id, "cliapp_%d", listaClientes[posCliente].id);
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(id, "Cliente de tipo APP acaba de entrar al sistema.");
+		writeLogMessage(id, "Entra al sistema un cliente de tipo APP");
 		pthread_mutex_unlock(&Fichero);
 	}
 	else
@@ -658,7 +639,7 @@ void accionesCliente(int posCliente)
 		// Cliente red
 		sprintf(id, "clired_%d", listaClientes[posCliente].id);
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(id, "Cliente de tipo RED acaba de entrar al sistema.");
+		writeLogMessage(id, "Entra al sistema un cliente de tipo RED");
 		pthread_mutex_unlock(&Fichero);
 	}
 
@@ -667,7 +648,7 @@ void accionesCliente(int posCliente)
 	{
 		// Encontró la aplicación dificil
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(id, "Encontró la aplicación difícil y se fue.");
+		writeLogMessage(id, "Encuentra la aplicación difícil y se va");
 		pthread_mutex_unlock(&Fichero);
 		liberaCliente(posCliente);
 		pthread_exit(0);
@@ -696,7 +677,7 @@ void accionesCliente(int posCliente)
 			// ¿Se cansó de esperar?
 			if (tiempoEsperando >= 8 && porcentaje <= 20)
 			{
-				sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
+				sprintf(msg, "Se cansa de esperar tras %d segundos", tiempoEsperando);
 				pthread_mutex_lock(&Fichero);
 				writeLogMessage(id, msg);
 				pthread_mutex_unlock(&Fichero);
@@ -707,7 +688,7 @@ void accionesCliente(int posCliente)
 			{
 				// Perdió la conexión a internet
 				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Perdió la conexión a Internet.");
+				writeLogMessage(id, "Pierde la conexión a Internet");
 				pthread_mutex_unlock(&Fichero);
 				seVa = 1;
 			}
@@ -754,7 +735,7 @@ void accionesCliente(int posCliente)
 
 			// Ya podemos esperar a ser atendidos
 			pthread_mutex_lock(&Fichero);
-			writeLogMessage(id, "Esperando a ser atendido en domicilio.");
+			writeLogMessage(id, "Espera a ser atendido en domicilio.");
 			pthread_mutex_unlock(&Fichero);
 
 			pthread_mutex_lock(&mutexColaClientes);
@@ -783,16 +764,26 @@ void accionesCliente(int posCliente)
 			pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 			pthread_mutex_lock(&Fichero);
-			writeLogMessage(id, "Recibió atención domiciliaria.");
+			writeLogMessage(id, "Recibe atención domiciliaria.");
 			pthread_mutex_unlock(&Fichero);
 		}
 	}
 
 	// El cliente se va
+	if (atendido == 2)
+	{
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage(id, "Se va del sistema habiendo sido atendido.");
+		pthread_mutex_unlock(&Fichero);
+	}
+	else
+	{
+		// atendido == 3
+		pthread_mutex_lock(&Fichero);
+		writeLogMessage(id, "Se va del sistema por confusión de compañía.");
+		pthread_mutex_unlock(&Fichero);
+	}
 	liberaCliente(posCliente);
-	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Se va tras haber sido atendido.");
-	pthread_mutex_unlock(&Fichero);
 	free(id);
 	free(msg);
 	pthread_exit(0);
@@ -843,7 +834,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 			{
 				// Escribir en el log que va a descansar
 				pthread_mutex_lock(&Fichero);
-				writeLogMessage(idTrabajador, "Va a descansar 5 segundos.");
+				writeLogMessage(idTrabajador, "Comienza descanso de 5 segundos.");
 				pthread_mutex_unlock(&Fichero);
 
 				// El trabajador deja de estar disponible
@@ -861,7 +852,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 
 				// Escribir en el log que ha dejado de descansar
 				pthread_mutex_lock(&Fichero);
-				writeLogMessage(idTrabajador, "Ha terminado su descanso.");
+				writeLogMessage(idTrabajador, "Termina su descanso.");
 				pthread_mutex_unlock(&Fichero);
 
 				// Resetear número de clientes atendidos a 0
@@ -884,7 +875,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 			{
 				// Escribir en el log que va a descansar
 				pthread_mutex_lock(&Fichero);
-				writeLogMessage(idTrabajador, "Va a descansar 6 segundos.");
+				writeLogMessage(idTrabajador, "Inicia descanso de 6 segundos.");
 				pthread_mutex_unlock(&Fichero);
 
 				// El trabajador deja de estar disponible
@@ -902,7 +893,7 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 
 				// Escribir en el log que ha dejado de descansar
 				pthread_mutex_lock(&Fichero);
-				writeLogMessage(idTrabajador, "Ha terminado su descanso.");
+				writeLogMessage(idTrabajador, "Termina su descanso.");
 				pthread_mutex_unlock(&Fichero);
 
 				// Resetear número de clientes atendidos a 0
@@ -1036,14 +1027,14 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(id, "Comenzando atención domiciliaria.");
+		writeLogMessage(id, "Inicio de atención domiciliaria");
 		pthread_mutex_unlock(&Fichero);
 
 		// Atendemos cada solicitud
 		for (i = 0; i < totalSolicitudes; i++)
 		{
 			sleep(1);
-			sprintf(cadena1, "Atendido cliente ");
+			sprintf(cadena1, "Acabó de atender al cliente ");
 			obtenerIDClienteAttDom(cadena2);
 			strcat(cadena1, cadena2);
 
@@ -1058,7 +1049,7 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(id, "Atención domiciliaria finalizada.\n");
+		writeLogMessage(id, "Fin de atención domiciliaria");
 		pthread_mutex_unlock(&Fichero);
 
 		// Damos aviso a los que esperaban por atención domiciliaria
@@ -1241,7 +1232,7 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 		char *idTrabajador, *idCliente, *msg;
 		idTrabajador = malloc(sizeof(char) * 30);
 		idCliente = malloc(sizeof(char) * 30);
-		msg = malloc(sizeof(char) * 50);
+		msg = malloc(sizeof(char) * 100);
 
 		// Definir id del trabajador según su tipo
 		int numID = 1;
@@ -1283,8 +1274,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 
 		// Indicamos que comienza el proceso de atención en el log
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(idCliente, "Va a ser atendido.");
-		writeLogMessage(idTrabajador, "Va a atender a un cliente.");
+		sprintf(msg, "Comienza a atender a %s", idCliente);
+		writeLogMessage(idTrabajador, msg);
 		pthread_mutex_unlock(&Fichero);
 
 		// Calcular tipo de atención
@@ -1299,8 +1290,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 
 			// Indicamos que finaliza la atención y el motivo en el log
 			pthread_mutex_lock(&Fichero);
-			writeLogMessage(idCliente, "Ha terminado de ser atendido. Estaba mal identificado.");
-			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			sprintf(msg, "Termina de atender a %s. Está mal identificado", idCliente);
+			writeLogMessage(idTrabajador, msg);
 			pthread_mutex_unlock(&Fichero);
 
 			// Marcar cliente como atendido
@@ -1317,8 +1308,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 
 			// Indicamos que finaliza la atención y el motivo en el log
 			pthread_mutex_lock(&Fichero);
-			writeLogMessage(idCliente, "Ha dejado el sistema por confusión.");
-			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			sprintf(msg, "Termina de atender a %s. Está confundido de compañía", idCliente);
+			writeLogMessage(idTrabajador, msg);
 			pthread_mutex_unlock(&Fichero);
 
 			// Marcar cliente como confundido
@@ -1335,8 +1326,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 
 			// Indicamos que finaliza la atención y el motivo en el log
 			pthread_mutex_lock(&Fichero);
-			writeLogMessage(idCliente, "Ha terminado de ser atendido. Todo en regla.");
-			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
+			sprintf(msg, "Termina de atender a %s. Tiene todo en regla", idCliente);
+			writeLogMessage(idTrabajador, msg);
 			pthread_mutex_unlock(&Fichero);
 
 			pthread_mutex_lock(&mutexColaClientes);
