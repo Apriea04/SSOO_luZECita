@@ -27,7 +27,7 @@ pthread_cond_t condSolicitudesDomicilio;
 int contadorApp, contadorRed, numSolicitudesDomicilio;
 
 // Variable para la salida controlada
-int finalizar;
+int finalizar, ordenarAcabar;
 
 // Sigaction
 struct sigaction sig;
@@ -35,18 +35,18 @@ struct sigaction sig;
 // Struct que define a un cliente
 struct Cliente
 {
-	int id;									// Número secuencial comenzando en 1 para su tipo de cliente
-	int atendido;						// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
-	int tipo;								// 0 si APP; 1 si RED
-	int prioridad;					// Del 1 al 10 aleatoria. 10 es la prioridad más alta
+	int id;					// Número secuencial comenzando en 1 para su tipo de cliente
+	int atendido;			// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
+	int tipo;				// 0 si APP; 1 si RED
+	int prioridad;			// Del 1 al 10 aleatoria. 10 es la prioridad más alta
 	int solicitudDomicilio; // 0 si no solicita atención domiciliaria o ya se le atendió domiciliariamente; 1 si sí la solicita
 };
 
 // Struct que define a un trabajador
 struct Trabajador
 {
-	int id;																 // Número secuencial comenzando en 1 para cada trabajador
-	int disponible;												 // 0 si no está disponible; 1 si está disponible
+	int id;								   // Número secuencial comenzando en 1 para cada trabajador
+	int disponible;						   // 0 si no está disponible; 1 si está disponible
 	int numClientesAtendidosHastaDescanso; // Número clientes atendidos por el trabajador
 };
 
@@ -225,18 +225,12 @@ void handlerVacio(int sig) {}
 void handlerTerminar(int s)
 {
 	// Provoca la salida controlada de los trabajadores (atendiendo a clientes restantes)
-	finalizar = 1;
+	ordenarAcabar = 1;
 
 	// Escribir en el log que se va a hacer una salida controlada
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage("sistema", "Iniciando salida controlada.");
+	writeLogMessage("SISTEMA", "Iniciando salida controlada.");
 	pthread_mutex_unlock(&Fichero);
-
-	// Enviar señal al técnico domiciliario para atender a los clientes restantes
-	printf("Enviando señal\n");
-	pthread_mutex_lock(&mutexSolicitudesDomicilio);
-	pthread_cond_signal(&condSolicitudesDomicilio);
-	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 	// Bloquear señales
 	sig.sa_handler = handlerVacio;
@@ -259,6 +253,39 @@ void handlerTerminar(int s)
 		perror("[ERROR] Error en la llamada a sigaction.");
 		exit(-1);
 	}
+
+	sig.sa_handler = handlerVacio;
+	if (sigaction(SIGPIPE, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+}
+
+/**
+ * Código de la función manejadora que amplía el total de clientes que puede aceptar el sistema
+ */
+void handlerAmpliaClientes(int s)
+{
+	// Vamos a modificar la cola de clientes. Zona peligrosa (crítica)
+	pthread_mutex_lock(&mutexColaClientes);
+	numClientes += 1;
+	listaClientes = realloc(listaClientes, sizeof(struct Cliente) * numClientes);
+	listaClientes[numClientes - 1].id = contadorApp;
+	listaClientes[numClientes - 1].atendido = 0;
+	listaClientes[numClientes - 1].prioridad = calculaAleatorios(1, 10);
+	listaClientes[numClientes - 1].solicitudDomicilio = 0;
+	listaClientes[numClientes - 1].tipo = 0;
+	pthread_mutex_unlock(&mutexColaClientes);
+
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage("SISTEMA", "Se ha añadido una nueva posición en la cola de clientes.");
+	pthread_mutex_unlock(&Fichero);
+}
+
+void handlerAmpliaTecnicos(int s)
+{
+	// TODO implementar este handler (SIGALRM)
 }
 
 /**CÓDIGOS DE EJECUCIÓN DE HILOS*/
@@ -283,6 +310,7 @@ void *Tecnico(void *arg)
 	printf("Técnico %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
+	// pthread_exit(NULL);
 }
 
 /**
@@ -305,6 +333,7 @@ void *Responsable(void *arg)
 	printf("Responsable de reparaciones %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
+	// pthread_exit(NULL);
 }
 
 /**
@@ -327,6 +356,7 @@ void *Encargado(void *arg)
 	printf("Encargado %d ha finalizado su trabajo.\n", index);
 	free(id);
 	free(arg);
+	// pthread_exit(NULL);
 }
 
 /**
@@ -341,13 +371,13 @@ void *AtencionDomiciliaria(void *arg)
 
 	int index = *(int *)arg;
 	accionesTecnicoDomiciliario();
-	sprintf(id, "resprep_%d", index + 1);
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Termina su trabajo");
+	writeLogMessage("tecnico_dom", "Termina su trabajo");
 	pthread_mutex_unlock(&Fichero);
 	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
+	// pthread_exit(NULL);
 }
 
 /**
@@ -366,6 +396,7 @@ void *Cliente(void *arg)
 
 int main(int argc, char *argv[])
 {
+	ordenarAcabar = 0; // Sirve para que cuando no queden clientes por atender y se haya recibido SIGINT se acabe con los trabajadores
 	printWelcome();
 
 	// Definir manejadoras para señales
@@ -386,6 +417,13 @@ int main(int argc, char *argv[])
 
 	sig.sa_handler = handlerTerminar;
 	if (sigaction(SIGINT, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = handlerAmpliaClientes;
+	if (sigaction(SIGPIPE, &sig, NULL) == -1)
 	{
 		perror("[ERROR] Error en la llamada a sigaction.");
 		exit(-1);
@@ -421,25 +459,61 @@ int main(int argc, char *argv[])
 	fclose(logFile);
 	pthread_mutex_unlock(&Fichero);
 
-	// Recibir paramentros del programama
-	if (argc == 2)
+	char *msg;
+	msg = malloc(sizeof(char) * 50);
+	// Recibir parámetros del programa
+	if (argc >= 3 && atoi(argv[2]) > 0)
 	{
-		numClientes = atoi(argv[1]);
+		// Comprobar si el primer argumento indica si son clientes o técnicos
+		if (strcmp(argv[1], "--clientes") == 0)
+		{
+			// Modificar número de clientes
+			numClientes = atoi(argv[2]);
 
+			// Cambiar mensaje del log
+			sprintf(msg, "Se ha cambiado el número máximo de clientes a %d.", numClientes);
+		}
+		else if (strcmp(argv[1], "--tecnicos") == 0)
+		{
+			// Modificar número de técnicos
+			numTecnicos = atoi(argv[2]);
+
+			// Cambiar mensaje del log
+			sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
+		}
+
+		// Escribir log con el cambio simple (argc = 3)
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage("Sistema", "Se ha cambiado el número máximo de clientes.");
+		writeLogMessage("Sistema", msg);
 		pthread_mutex_unlock(&Fichero);
-	}
-	else if (argc == 3)
-	{
-		numClientes = atoi(argv[1]);
-		numTecnicos = atoi(argv[2]);
 
-		pthread_mutex_lock(&Fichero);
-		writeLogMessage("Sistema", "Se ha cambiado el número maximos de clientes y tecnicos");
-		pthread_mutex_unlock(&Fichero);
-	}
+		// Comprobar si el cambio es completo (argc = 5)
+		if (argc == 5 && atoi(argv[4]) > 0)
+		{
+			// Comprobar si el tercer argumento indica si son clientes o técnicos
+			if (strcmp(argv[3], "--clientes") == 0)
+			{
+				// Modificar número de clientes
+				numClientes = atoi(argv[4]);
 
+				// Cambiar mensaje del log
+				sprintf(msg, "Se ha cambiado el número máximo de clientes a %d.", numClientes);
+			}
+			else if (strcmp(argv[3], "--tecnicos") == 0)
+			{
+				// Modificar número de técnicos
+				numTecnicos = atoi(argv[4]);
+
+				// Cambiar mensaje del log
+				sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
+			}
+
+			// Escribir log con el segundo cambio
+			pthread_mutex_lock(&Fichero);
+			writeLogMessage("Sistema", msg);
+			pthread_mutex_unlock(&Fichero);
+		}
+	}
 	// Inicialización de hilos
 	hilosTecnicos = malloc((sizeof(pthread_t)) * numTecnicos);
 	hilosRespReparaciones = malloc((sizeof(pthread_t) * numRespReparaciones));
@@ -454,6 +528,7 @@ int main(int argc, char *argv[])
 	contadorRed = 0;
 	numSolicitudesDomicilio = 0;
 	finalizar = 0;
+	ordenarAcabar = 0;
 
 	// Inicialización de lista de clientes
 	listaClientes = (struct Cliente *)malloc(numClientes * sizeof(struct Cliente));
@@ -538,7 +613,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	while (finalizar == 0)
+	// TODO comprobar si es necesario dentro del WHILE
+	while (ordenarAcabar == 0)
 	{
 		sig.sa_handler = handlerClienteApp;
 		if (sigaction(SIGUSR1, &sig, NULL) == -1)
@@ -562,6 +638,36 @@ int main(int argc, char *argv[])
 		}
 		pause();
 	}
+
+	// Se ordenó finalizar.
+	int quedanClientes;
+
+	while (quedanClientes == 0)
+	{
+		i = 0;
+		quedanClientes = 0;
+		pthread_mutex_lock(&mutexColaClientes);
+
+		while (i < numClientes && quedanClientes == 0)
+		{
+			if (listaClientes[i].id != 0 && listaClientes[i].solicitudDomicilio != 1)
+			{
+				quedanClientes = listaClientes[i].id;
+			}
+			i += 1;
+		}
+		pthread_mutex_unlock(&mutexColaClientes);
+
+		sleep(2);
+	}
+
+	finalizar = 1;
+
+	// Enviar señal al técnico domiciliario para atender a los clientes restantes
+	printf("Enviando señal\n");
+	pthread_mutex_lock(&mutexSolicitudesDomicilio);
+	pthread_cond_signal(&condSolicitudesDomicilio);
+	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 	// Esperar a que todos los hilos terminen sus funciones antes de acabar el programa
 	for (i = 0; i < numTecnicos; i++)
@@ -599,11 +705,12 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
+
 	printf("Finalizado el programa de gestión con éxito\n");
 
 	// Escribir en el log que se ha terminado la salida ordenada con éxito
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage("sistema", "Salida controlada finalizada con éxito.");
+	writeLogMessage("SISTEMA", "Salida controlada finalizada con éxito.");
 	pthread_mutex_unlock(&Fichero);
 
 	// Liberar listas
@@ -1108,7 +1215,12 @@ void accionesTecnicoDomiciliario()
 		{
 			sleep(1);
 			sprintf(cadena1, "Termina de atender al cliente ");
+
+			// Por si justo se cambiara el número máximo de clientes en la cola, dentro de mutex
+			// pthread_mutex_lock(&mutexColaClientes);
 			atenderClienteAttDom(cadena2);
+			// pthread_mutex_unlock(&mutexColaClientes);
+
 			strcat(cadena1, cadena2);
 
 			pthread_mutex_lock(&Fichero);

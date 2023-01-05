@@ -2,3 +2,4 @@ practica
 *.out
 .vscode/
 registroTiempos.log
+*.log
