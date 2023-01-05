@@ -16,7 +16,7 @@
 
 /**DECLARACIONES GLOBALES*/
 
-// TODO imprimir en log descansos de trabajadores
+// TODO imprimir en log descansos de trabajadores y id + 1 en salida controlada
 
 // Mutex
 pthread_mutex_t Fichero, colaClientes, mutexTecnicos, mutexResponsables, solicitudes;
@@ -258,7 +258,7 @@ void handlerTerminar(int s)
 void *Tecnico(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char) * 100);
+	id = malloc(sizeof(char) * 30);
 
 	int index = *(int *)arg;
 	accionesTecnico(0, index);
@@ -279,7 +279,7 @@ void *Tecnico(void *arg)
 void *Responsable(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char) * 100);
+	id = malloc(sizeof(char) * 30);
 
 	int index = *(int *)arg;
 	accionesTecnico(1, index);
@@ -302,7 +302,7 @@ void *Encargado(void *arg)
 	int index = *(int *)arg;
 	accionesEncargado();
 	char *id;
-	id = malloc(sizeof(char) * 100);
+	id = malloc(sizeof(char) * 30);
 
 	sprintf(id, "resprep_%d", index);
 	pthread_mutex_lock(&Fichero);
@@ -321,7 +321,7 @@ void *Encargado(void *arg)
 void *AtencionDomiciliaria(void *arg)
 {
 	char *id;
-	id = malloc(sizeof(char) * 100);
+	id = malloc(sizeof(char) * 30);
 
 	int index = *(int *)arg;
 	accionesTecnicoDomiciliario();
@@ -590,7 +590,7 @@ void nuevoCliente(int tipo)
 			pthread_t cliente;
 			char *id;
 
-			id = malloc(sizeof(char) * 100); // Identificador único de cada cliente
+			id = malloc(sizeof(char) * 30); // Identificador único de cada cliente
 
 			// Inicializamos hilo cliente de tipo APP y escribimos el hecho en el log
 			if (listaClientes[i].tipo == 0)
@@ -628,7 +628,8 @@ void accionesCliente(int posicion)
 	char *id, *msg;
 	int seVa = 0; // en principio, el cliente no se va.
 
-	id = malloc(sizeof(char) * 100);
+	id = malloc(sizeof(char) * 30);
+	msg = malloc(sizeof(char) * 50);
 
 	pthread_mutex_lock(&colaClientes); // TODO duda ¿Proteger?
 	int tipo = listaClientes[posicion].tipo;
@@ -686,9 +687,9 @@ void accionesCliente(int posicion)
 			// ¿Se cansó de esperar?
 			if (tiempoEsperando >= 8 && porcentaje <= 20)
 			{
-				// sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
+				sprintf(msg, "Se cansó de esperar tras %d segundos", tiempoEsperando);
 				pthread_mutex_lock(&Fichero);
-				writeLogMessage(id, "Se cansó de esperar.");
+				writeLogMessage(id, msg);
 				pthread_mutex_unlock(&Fichero);
 
 				seVa = 1;
@@ -941,9 +942,9 @@ void accionesTecnicoDomiciliario()
 	int posicionCliente;
 	int totalSolicitudes = NSOLICDOMINECESARIAS;
 
-	id = malloc(sizeof(char) * 100);
-	cadena1 = malloc(sizeof(char) * 100);
-	cadena2 = malloc(sizeof(char) * 100);
+	id = malloc(sizeof(char) * 30);
+	cadena1 = malloc(sizeof(char) * 50);
+	cadena2 = malloc(sizeof(char) * 50);
 
 	sprintf(id, "tecnico_dom");
 	do
@@ -1182,9 +1183,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 	else
 	{
 		char *idTrabajador, *idCliente, *msg;
-		idTrabajador = malloc(sizeof(char) * 100);
-		idCliente = malloc(sizeof(char) * 100);
-		msg = malloc(sizeof(char) * 100);
+		idTrabajador = malloc(sizeof(char) * 30);
+		idCliente = malloc(sizeof(char) * 30);
+		msg = malloc(sizeof(char) * 50);
 
 		// Definir id del trabajador según su tipo
 		int numID = 1;
