@@ -7,16 +7,15 @@
 #include <signal.h>
 #include <string.h>
 
-int nclientes = 20;
-int ntecnicos = 2;
-int nrespreparaciones = 2;
-int nencargados = 1;
-int ntecdomiciliaria = 1;
-int nsolicdominecesarias = 4; // Número de solicitudes domciliarias necesarias para comenzar con esa atención
-
 /**DECLARACIONES GLOBALES*/
 
-// TODO la salida controlada a veces falla
+// Cantidad de trabajadores y clientes
+int numClientes;
+int numTecnicos;
+int numRespReparaciones;
+int numEncargados;
+int numTecDomiciliario;
+int numSolDomiNecesarias; // Número de solicitudes hasta que el técnico domiciliario atienda a los clientes
 
 // Mutex
 pthread_mutex_t Fichero, mutexColaClientes, mutexTecnicos, mutexRespReparaciones, mutexSolicitudesDomicilio, mutexViaje;
@@ -36,18 +35,18 @@ struct sigaction sig;
 // Struct que define a un cliente
 struct Cliente
 {
-	int id;					// Número secuencial comenzando en 1 para su tipo de cliente
-	int atendido;			// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
-	int tipo;				// 0 si APP; 1 si RED
-	int prioridad;			// Del 1 al 10 aleatoria. 10 es la prioridad más alta
+	int id;									// Número secuencial comenzando en 1 para su tipo de cliente
+	int atendido;						// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
+	int tipo;								// 0 si APP; 1 si RED
+	int prioridad;					// Del 1 al 10 aleatoria. 10 es la prioridad más alta
 	int solicitudDomicilio; // 0 si no solicita atención domiciliaria o ya se le atendió domiciliariamente; 1 si sí la solicita
 };
 
 // Struct que define a un trabajador
 struct Trabajador
 {
-	int id;								   // Número secuencial comenzando en 1 para cada trabajador
-	int disponible;						   // 0 si no está disponible; 1 si está disponible
+	int id;																 // Número secuencial comenzando en 1 para cada trabajador
+	int disponible;												 // 0 si no está disponible; 1 si está disponible
 	int numClientesAtendidosHastaDescanso; // Número clientes atendidos por el trabajador
 };
 
@@ -394,11 +393,19 @@ int main(int argc, char *argv[])
 
 	/**INICIALIZAR RECURSOS*/
 
+	// Inicialización de cantidades por defecto de trabajadores y clientes
+	numClientes = 20;
+	numTecnicos = 2;
+	numRespReparaciones = 2;
+	numEncargados = 1;
+	numTecDomiciliario = 1;
+	numSolDomiNecesarias = 4;
+
 	// Inicialización de hilos
-	hilosTecnicos = malloc((sizeof(pthread_t)) * ntecnicos);
-	hilosRespReparaciones = malloc((sizeof(pthread_t) * nrespreparaciones));
-	hilosEncargados = malloc((sizeof(pthread_t) * nencargados));
-	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * ntecdomiciliaria));
+	hilosTecnicos = malloc((sizeof(pthread_t)) * numTecnicos);
+	hilosRespReparaciones = malloc((sizeof(pthread_t) * numRespReparaciones));
+	hilosEncargados = malloc((sizeof(pthread_t) * numEncargados));
+	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * numTecDomiciliario));
 
 	// Inicialización de mutex
 	pthread_mutex_init(&Fichero, NULL);
@@ -417,7 +424,7 @@ int main(int argc, char *argv[])
 	// Recibir paramentros del programama
 	if (argc == 2)
 	{
-		nclientes = atoi(argv[1]);
+		numClientes = atoi(argv[1]);
 
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage("Sistema", "Se ha cambiado el número máximo de clientes.");
@@ -425,8 +432,8 @@ int main(int argc, char *argv[])
 	}
 	else if (argc == 3)
 	{
-		nclientes = atoi(argv[1]);
-		ntecnicos = atoi(argv[2]);
+		numClientes = atoi(argv[1]);
+		numTecnicos = atoi(argv[2]);
 
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage("Sistema", "Se ha cambiado el número maximos de clientes y tecnicos");
@@ -434,10 +441,10 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de hilos
-	hilosTecnicos = malloc((sizeof(pthread_t)) * ntecnicos);
-	hilosRespReparaciones = malloc((sizeof(pthread_t) * nrespreparaciones));
-	hilosEncargados = malloc((sizeof(pthread_t) * nencargados));
-	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * ntecdomiciliaria));
+	hilosTecnicos = malloc((sizeof(pthread_t)) * numTecnicos);
+	hilosRespReparaciones = malloc((sizeof(pthread_t) * numRespReparaciones));
+	hilosEncargados = malloc((sizeof(pthread_t) * numEncargados));
+	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * numTecDomiciliario));
 
 	// Inicialización de variables condición
 	pthread_cond_init(&condSolicitudesDomicilio, NULL);
@@ -449,8 +456,8 @@ int main(int argc, char *argv[])
 	finalizar = 0;
 
 	// Inicialización de lista de clientes
-	listaClientes = (struct Cliente *)malloc(nclientes * sizeof(struct Cliente));
-	for (i = 0; i < nclientes; i++)
+	listaClientes = (struct Cliente *)malloc(numClientes * sizeof(struct Cliente));
+	for (i = 0; i < numClientes; i++)
 	{
 		listaClientes[i].id = 0;
 		listaClientes[i].prioridad = 0;
@@ -459,8 +466,8 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de lista de técnicos
-	listaTecnicos = (struct Trabajador *)malloc(ntecnicos * sizeof(struct Trabajador));
-	for (i = 0; i < ntecnicos; i++)
+	listaTecnicos = (struct Trabajador *)malloc(numTecnicos * sizeof(struct Trabajador));
+	for (i = 0; i < numTecnicos; i++)
 	{
 		listaTecnicos[i].id = 0;
 		// Por defecto disponible
@@ -469,7 +476,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de técnicos
-	for (i = 0; i < ntecnicos; i++)
+	for (i = 0; i < numTecnicos; i++)
 	{
 		// Agregar a lista de técnicos
 		listaTecnicos[i].id = i + 1;
@@ -484,8 +491,8 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de lista de reponsables de reparaciones.
-	listaRespReparaciones = (struct Trabajador *)malloc(nrespreparaciones * sizeof(struct Trabajador));
-	for (i = 0; i < nrespreparaciones; i++)
+	listaRespReparaciones = (struct Trabajador *)malloc(numRespReparaciones * sizeof(struct Trabajador));
+	for (i = 0; i < numRespReparaciones; i++)
 	{
 		listaRespReparaciones[i].id = 0;
 		listaRespReparaciones[i].disponible = 1;
@@ -493,7 +500,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de responsables de reparaciones.
-	for (i = 0; i < nrespreparaciones; i++)
+	for (i = 0; i < numRespReparaciones; i++)
 	{
 		// Agregar a lista de responsables de reparaciones.
 		listaRespReparaciones[i].id = i + 1;
@@ -508,7 +515,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de encargados.
-	for (i = 0; i < nencargados; i++)
+	for (i = 0; i < numEncargados; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -520,7 +527,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de técnicos de atención domiciliaria.
-	for (i = 0; i < ntecdomiciliaria; i++)
+	for (i = 0; i < numTecDomiciliario; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -557,7 +564,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Esperar a que todos los hilos terminen sus funciones antes de acabar el programa
-	for (i = 0; i < ntecnicos; i++)
+	for (i = 0; i < numTecnicos; i++)
 	{
 		if (pthread_join(hilosTecnicos[i], NULL) != 0)
 		{
@@ -566,7 +573,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (i = 0; i < nrespreparaciones; i++)
+	for (i = 0; i < numRespReparaciones; i++)
 	{
 		if (pthread_join(hilosRespReparaciones[i], NULL) != 0)
 		{
@@ -575,7 +582,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (i = 0; i < nencargados; i++)
+	for (i = 0; i < numEncargados; i++)
 	{
 		if (pthread_join(hilosEncargados[i], NULL) != 0)
 		{
@@ -584,7 +591,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (i = 0; i < ntecdomiciliaria; i++)
+	for (i = 0; i < numTecDomiciliario; i++)
 	{
 		if (pthread_join(hilosTecDomiciliarios[i], NULL) != 0)
 		{
@@ -628,7 +635,7 @@ void nuevoCliente(int tipoCliente)
 	int i = 0;
 	pthread_mutex_lock(&mutexColaClientes);
 	// Busca posición libre dentro del array (id=0)
-	while (i < nclientes && finalizar == 0)
+	while (i < numClientes && finalizar == 0)
 	{
 		if (listaClientes[i].id == 0)
 		{
@@ -780,11 +787,11 @@ void accionesCliente(int posCliente)
 				sol = numSolicitudesDomicilio;
 				pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
-				if (sol > nsolicdominecesarias)
+				if (sol > numSolDomiNecesarias)
 				{
 					sleep(3);
 				}
-			} while (sol >= nsolicdominecesarias);
+			} while (sol >= numSolDomiNecesarias);
 
 			// Ya podemos esperar a ser atendidos
 			pthread_mutex_lock(&Fichero);
@@ -800,7 +807,7 @@ void accionesCliente(int posCliente)
 
 			pthread_mutex_lock(&mutexSolicitudesDomicilio);
 			numSolicitudesDomicilio += 1;
-			if (numSolicitudesDomicilio == nsolicdominecesarias)
+			if (numSolicitudesDomicilio == numSolDomiNecesarias)
 			{
 				// Damos el aviso al técnico de atención domiciliaria
 				pthread_cond_signal(&condSolicitudesDomicilio);
@@ -1057,7 +1064,7 @@ void accionesTecnicoDomiciliario()
 	char *id, *cadena1, *cadena2;
 	int i;
 	int posicionCliente;
-	int totalSolicitudes = nsolicdominecesarias;
+	int totalSolicitudes = numSolDomiNecesarias;
 
 	id = malloc(sizeof(char) * 30);
 	cadena1 = malloc(sizeof(char) * 50);
@@ -1068,7 +1075,7 @@ void accionesTecnicoDomiciliario()
 	{
 		// Comprobamos que el número de solicitudes domiciliarias. Bloqueamos si es menor que 4
 		pthread_mutex_lock(&mutexSolicitudesDomicilio);
-		while (numSolicitudesDomicilio < nsolicdominecesarias)
+		while (numSolicitudesDomicilio < numSolDomiNecesarias)
 		{
 			// Espera a que el número de solicitudes sea 4 solo si no se debe terminar ya el programa
 			if (finalizar == 0)
@@ -1176,7 +1183,7 @@ int obtenerPosicionProximoCliente()
 
 	int cambiarCliente = 0;
 
-	for (int i = 0; i < nclientes; i++)
+	for (int i = 0; i < numClientes; i++)
 	{
 		cambiarCliente = 0;
 		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
@@ -1231,7 +1238,7 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 
 	int cambiarCliente = 0;
 
-	for (int i = 0; i < nclientes; i++)
+	for (int i = 0; i < numClientes; i++)
 	{
 		cambiarCliente = 0;
 		if (listaClientes[i].id != 0 && listaClientes[i].atendido == 0)
@@ -1429,7 +1436,7 @@ void atenderClienteAttDom(char *cadena)
 	int i, count;
 	count = 0;
 	i = 0;
-	while (i < nclientes)
+	while (i < numClientes)
 	{
 		if (listaClientes[i].solicitudDomicilio == 1)
 		{
@@ -1453,7 +1460,7 @@ int obtenerNumTecnicosDisponibles()
 
 	pthread_mutex_lock(&mutexTecnicos);
 
-	for (int i = 0; i < ntecnicos; i++)
+	for (int i = 0; i < numTecnicos; i++)
 	{
 		if (listaTecnicos[i].disponible == 1)
 		{
@@ -1472,7 +1479,7 @@ int obtenerNumRespReparacionesDisponibles()
 
 	pthread_mutex_lock(&mutexRespReparaciones);
 
-	for (int i = 0; i < nrespreparaciones; i++)
+	for (int i = 0; i < numRespReparaciones; i++)
 	{
 		if (listaRespReparaciones[i].disponible == 1)
 		{
