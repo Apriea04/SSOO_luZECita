@@ -731,7 +731,7 @@ void accionesCliente(int posCliente)
 				{
 					sleep(3);
 				}
-			} while (sol > NSOLICDOMINECESARIAS);
+			} while (sol >= NSOLICDOMINECESARIAS);
 
 			// Ya podemos esperar a ser atendidos
 			pthread_mutex_lock(&Fichero);
