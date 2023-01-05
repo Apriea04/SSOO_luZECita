@@ -20,7 +20,7 @@
 // TODO la salida controlada a veces falla
 
 // Mutex
-pthread_mutex_t Fichero, colaClientes, mutexTecnicos, mutexResponsables, solicitudesDomicilio;
+pthread_mutex_t Fichero, mutexColaClientes, mutexTecnicos, mutexRespReparaciones, mutexSolicitudesDomicilio;
 
 // Variables condición
 pthread_cond_t condSolicitudesDomicilio;
@@ -47,9 +47,9 @@ struct Cliente
 // Struct que define a un trabajador
 struct Trabajador
 {
-	int id;					  // Número secuencial comenzando en 1 para cada trabajador
-	int disponible;			  // 0 si no está disponible; 1 si está disponible
-	int numClientesAtendidos; // Número clientes atendidos por el trabajador
+	int id;								   // Número secuencial comenzando en 1 para cada trabajador
+	int disponible;						   // 0 si no está disponible; 1 si está disponible
+	int numClientesAtendidosHastaDescanso; // Número clientes atendidos por el trabajador
 };
 
 // Listas de hilos trabajadores
@@ -170,8 +170,10 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente);
  * @param posTrabajador posición del trabajador en su respectiva lista (listaTecnicos o listaRespReparaciones).
  * @param tipoCliente tipo de cliente (APP o RED).
  * @param posCliente posición del cliente en listaClientes.
+ *
+ * @return 0 si no se ha atendido a un cliente; 1 si se ha atendido un cliente
  */
-void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente);
+int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente);
 
 /**
  * Escribe en el puntero el identificador del próximo cliente que recibió atención domiciliaria y
@@ -226,10 +228,10 @@ void handlerTerminar(int s)
 {
 	finalizar = 1;
 
-	pthread_mutex_lock(&solicitudesDomicilio);
+	pthread_mutex_lock(&mutexSolicitudesDomicilio);
 	printf("Enviando señal\n");
 	pthread_cond_signal(&condSolicitudesDomicilio);
-	pthread_mutex_unlock(&solicitudesDomicilio);
+	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 	sig.sa_handler = handlerEmpty;
 	if (sigaction(SIGUSR1, &sig, NULL) == -1)
@@ -268,11 +270,11 @@ void *Tecnico(void *arg)
 
 	int index = *(int *)arg;
 	accionesTecnico(0, index);
-	sprintf(id, "tecnico_%d", index);
+	sprintf(id, "tecnico_%d", index + 1);
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Ha finalizado su trabajo");
+	writeLogMessage(id, "Ha finalizado su trabajo.");
 	pthread_mutex_unlock(&Fichero);
-	printf("Técnico %d ha finalizado su trabajo\n", index);
+	printf("Técnico %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
 }
@@ -290,11 +292,11 @@ void *Responsable(void *arg)
 
 	int index = *(int *)arg;
 	accionesTecnico(1, index);
-	sprintf(id, "resprep_%d", index);
+	sprintf(id, "resprep_%d", index + 1);
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Ha finalizado su trabajo");
+	writeLogMessage(id, "Ha finalizado su trabajo.");
 	pthread_mutex_unlock(&Fichero);
-	printf("Responsable de reparaciones %d ha finalizado su trabajo\n", index);
+	printf("Responsable de reparaciones %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
 }
@@ -312,11 +314,11 @@ void *Encargado(void *arg)
 	char *id;
 	id = malloc(sizeof(char) * 30);
 
-	sprintf(id, "resprep_%d", index);
+	sprintf(id, "resprep_%d", index + 1);
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Ha finalizado su trabajo");
+	writeLogMessage(id, "Ha finalizado su trabajo.");
 	pthread_mutex_unlock(&Fichero);
-	printf("Encargado %d ha finalizado su trabajo\n", index);
+	printf("Encargado %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
 }
@@ -333,11 +335,11 @@ void *AtencionDomiciliaria(void *arg)
 
 	int index = *(int *)arg;
 	accionesTecnicoDomiciliario();
-	sprintf(id, "resprep_%d", index);
+	sprintf(id, "resprep_%d", index + 1);
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Ha finalizado su trabajo");
+	writeLogMessage(id, "Ha finalizado su trabajo.");
 	pthread_mutex_unlock(&Fichero);
-	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo\n", index);
+	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
 }
@@ -387,10 +389,10 @@ int main()
 
 	// Inicicialización de mutex
 	pthread_mutex_init(&Fichero, NULL);
-	pthread_mutex_init(&colaClientes, NULL);
+	pthread_mutex_init(&mutexColaClientes, NULL);
 	pthread_mutex_init(&mutexTecnicos, NULL);
-	pthread_mutex_init(&mutexResponsables, NULL);
-	pthread_mutex_init(&solicitudesDomicilio, NULL);
+	pthread_mutex_init(&mutexRespReparaciones, NULL);
+	pthread_mutex_init(&mutexSolicitudesDomicilio, NULL);
 
 	// Inicialización de variables condición
 	pthread_cond_init(&condSolicitudesDomicilio, NULL);
@@ -423,7 +425,7 @@ int main()
 		listaTecnicos[i].id = 0;
 		// Por defecto disponible
 		listaTecnicos[i].disponible = 1;
-		listaTecnicos[i].numClientesAtendidos = 0;
+		listaTecnicos[i].numClientesAtendidosHastaDescanso = 0;
 	}
 
 	// Inicialización de técnicos
@@ -447,7 +449,7 @@ int main()
 	{
 		listaRespReparaciones[i].id = 0;
 		listaRespReparaciones[i].disponible = 1;
-		listaRespReparaciones[i].numClientesAtendidos = 0;
+		listaRespReparaciones[i].numClientesAtendidosHastaDescanso = 0;
 	}
 
 	// Inicialización de responsables de reparaciones.
@@ -514,7 +516,7 @@ int main()
 		pause();
 	}
 
-	// TODO: No sé si esto es necesario, conviene revisarlo posteriormente - Joins de todos los hilos
+	// Esperar a que todos los hilos terminen sus funciones antes de acabar el programa
 	for (i = 0; i < NTECNICOS; i++)
 	{
 		if (pthread_join(hilosTecnicos[i], NULL) != 0)
@@ -558,10 +560,10 @@ int main()
 
 	// Eliminar los mutex al salir
 	pthread_mutex_destroy(&Fichero);
-	pthread_mutex_destroy(&colaClientes);
+	pthread_mutex_destroy(&mutexColaClientes);
 	pthread_mutex_destroy(&mutexTecnicos);
-	pthread_mutex_destroy(&mutexResponsables);
-	pthread_mutex_destroy(&solicitudesDomicilio);
+	pthread_mutex_destroy(&mutexRespReparaciones);
+	pthread_mutex_destroy(&mutexSolicitudesDomicilio);
 
 	return 0;
 }
@@ -571,7 +573,7 @@ int main()
 void nuevoCliente(int tipoCliente)
 {
 	int i = 0;
-	pthread_mutex_lock(&colaClientes);
+	pthread_mutex_lock(&mutexColaClientes);
 	// Busca posición libre dentro del array (id=0)
 	while (i < NCLIENTES && finalizar == 0)
 	{
@@ -626,7 +628,7 @@ void nuevoCliente(int tipoCliente)
 		}
 		i++;
 	}
-	pthread_mutex_unlock(&colaClientes);
+	pthread_mutex_unlock(&mutexColaClientes);
 }
 
 void accionesCliente(int posCliente)
@@ -639,14 +641,13 @@ void accionesCliente(int posCliente)
 	id = malloc(sizeof(char) * 30);
 	msg = malloc(sizeof(char) * 50);
 
-	pthread_mutex_lock(&colaClientes); // TODO duda ¿Proteger?
+	pthread_mutex_lock(&mutexColaClientes); // TODO duda ¿Proteger?
 	int tipo = listaClientes[posCliente].tipo;
-	pthread_mutex_unlock(&colaClientes);
+	pthread_mutex_unlock(&mutexColaClientes);
 
 	if (tipo == 0)
 	{
 		// Cliente app
-
 		sprintf(id, "cliapp_%d", listaClientes[posCliente].id);
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Cliente de tipo APP acaba de entrar al sistema.");
@@ -684,9 +685,9 @@ void accionesCliente(int posCliente)
 			pthread_exit(0);
 		}
 		// ¿Estoy atendido?
-		pthread_mutex_lock(&colaClientes);
+		pthread_mutex_lock(&mutexColaClientes);
 		atendido = listaClientes[posCliente].atendido;
-		pthread_mutex_unlock(&colaClientes);
+		pthread_mutex_unlock(&mutexColaClientes);
 
 		if (atendido == 0)
 		{
@@ -724,9 +725,9 @@ void accionesCliente(int posCliente)
 		// Estoy siendo atendido
 		sleep(2);
 
-		pthread_mutex_lock(&colaClientes);
+		pthread_mutex_lock(&mutexColaClientes);
 		atendido = listaClientes[posCliente].atendido;
-		pthread_mutex_unlock(&colaClientes);
+		pthread_mutex_unlock(&mutexColaClientes);
 	}
 
 	// Ya acabó de ser atendido. Si es de tipo app, se va
@@ -741,9 +742,9 @@ void accionesCliente(int posCliente)
 			int sol;
 			do
 			{
-				pthread_mutex_lock(&solicitudesDomicilio);
+				pthread_mutex_lock(&mutexSolicitudesDomicilio);
 				sol = numSolicitudesDomicilio;
-				pthread_mutex_unlock(&solicitudesDomicilio);
+				pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 				if (sol > NSOLICDOMINECESARIAS)
 				{
@@ -756,11 +757,11 @@ void accionesCliente(int posCliente)
 			writeLogMessage(id, "Esperando a ser atendido en domicilio.");
 			pthread_mutex_unlock(&Fichero);
 
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			listaClientes[posCliente].solicitudDomicilio = 1;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 
-			pthread_mutex_lock(&solicitudesDomicilio);
+			pthread_mutex_lock(&mutexSolicitudesDomicilio);
 			numSolicitudesDomicilio += 1;
 			if (numSolicitudesDomicilio == NSOLICDOMINECESARIAS)
 			{
@@ -768,18 +769,18 @@ void accionesCliente(int posCliente)
 				pthread_cond_signal(&condSolicitudesDomicilio);
 			}
 
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			int estadoSolicitud = listaClientes[posCliente].solicitudDomicilio;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 
 			while (estadoSolicitud != 0)
 			{
-				pthread_cond_wait(&condSolicitudesDomicilio, &solicitudesDomicilio);
-				pthread_mutex_lock(&colaClientes);
+				pthread_cond_wait(&condSolicitudesDomicilio, &mutexSolicitudesDomicilio);
+				pthread_mutex_lock(&mutexColaClientes);
 				estadoSolicitud = listaClientes[posCliente].solicitudDomicilio;
-				pthread_mutex_unlock(&colaClientes);
+				pthread_mutex_unlock(&mutexColaClientes);
 			}
-			pthread_mutex_unlock(&solicitudesDomicilio);
+			pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 			pthread_mutex_lock(&Fichero);
 			writeLogMessage(id, "Recibió atención domiciliaria.");
@@ -790,7 +791,7 @@ void accionesCliente(int posCliente)
 	// El cliente se va
 	liberaCliente(posCliente);
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Se va tras haber sido atendido");
+	writeLogMessage(id, "Se va tras haber sido atendido.");
 	pthread_mutex_unlock(&Fichero);
 	free(id);
 	free(msg);
@@ -802,80 +803,142 @@ void accionesTecnico(int tipoTrabajador, int posTrabajador)
 	int posCliente;
 	int tipoCliente;
 
+	// Definir id del trabajador
+	int numID;
+	char *idTrabajador;
+	idTrabajador = malloc(sizeof(char) * 30);
+	if (tipoTrabajador == 0)
+	{
+		// Definir id de técnico
+		pthread_mutex_lock(&mutexTecnicos);
+		numID = listaTecnicos[posTrabajador].id;
+		pthread_mutex_unlock(&mutexTecnicos);
+		sprintf(idTrabajador, "tecnico_%d", numID);
+	}
+	else if (tipoTrabajador == 1)
+	{
+		// Definir id de responsable de reparaciones
+		pthread_mutex_lock(&mutexRespReparaciones);
+		numID = listaRespReparaciones[posTrabajador].id;
+		pthread_mutex_unlock(&mutexRespReparaciones);
+		sprintf(idTrabajador, "resprep_%d", numID);
+	}
+
 	// Bucle en el que el trabajador va atendiendo a los clientes que le lleguen
 	do
 	{
 		// Comprobar si es necesario un descanso según el tipo
-		int numClientesAtendidos;
+		int numClientesAtendidosHastaDescanso;
 		if (tipoTrabajador == 0)
 		{
 			// Técnico
+
+			// Obtener número de clientes atendidos hasta el descanso
 			pthread_mutex_lock(&mutexTecnicos);
-			numClientesAtendidos = listaTecnicos[posTrabajador].numClientesAtendidos;
+			numClientesAtendidosHastaDescanso = listaTecnicos[posTrabajador].numClientesAtendidosHastaDescanso;
 			pthread_mutex_unlock(&mutexTecnicos);
 
 			// El técnico descansa 5 segundos por cada 5 clientes
-			if (numClientesAtendidos % 5 == 0)
+			if (numClientesAtendidosHastaDescanso == 5)
 			{
+				// Escribir en el log que va a descansar
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(idTrabajador, "Va a descansar 5 segundos.");
+				pthread_mutex_unlock(&Fichero);
+
+				// El trabajador deja de estar disponible
 				pthread_mutex_lock(&mutexTecnicos);
 				listaTecnicos[posTrabajador].disponible = 0;
 				pthread_mutex_unlock(&mutexTecnicos);
 
+				// Descanso
 				sleep(5);
 
+				// El trabajador vuelve a estar disponible
 				pthread_mutex_lock(&mutexTecnicos);
 				listaTecnicos[posTrabajador].disponible = 1;
+				pthread_mutex_unlock(&mutexTecnicos);
+
+				// Escribir en el log que ha dejado de descansar
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(idTrabajador, "Ha terminado su descanso.");
+				pthread_mutex_unlock(&Fichero);
+
+				// Resetear número de clientes atendidos a 0
+				pthread_mutex_lock(&mutexTecnicos);
+				listaTecnicos[posTrabajador].numClientesAtendidosHastaDescanso = 0;
 				pthread_mutex_unlock(&mutexTecnicos);
 			}
 		}
 		else if (tipoTrabajador == 1)
 		{
 			// Responsable de reparaciones
-			pthread_mutex_lock(&mutexResponsables);
-			numClientesAtendidos = listaRespReparaciones[posTrabajador].numClientesAtendidos;
-			pthread_mutex_unlock(&mutexResponsables);
+
+			// Obtener número de clientes atendidos hasta el descanso
+			pthread_mutex_lock(&mutexRespReparaciones);
+			numClientesAtendidosHastaDescanso = listaRespReparaciones[posTrabajador].numClientesAtendidosHastaDescanso;
+			pthread_mutex_unlock(&mutexRespReparaciones);
 
 			// El responsable de reparaciones descansa 6 segundos por cada 6 clientes
-			if (numClientesAtendidos % 6 == 0)
+			if (numClientesAtendidosHastaDescanso == 6)
 			{
-				pthread_mutex_lock(&mutexTecnicos);
-				listaRespReparaciones[posTrabajador].disponible = 0;
-				pthread_mutex_unlock(&mutexTecnicos);
+				// Escribir en el log que va a descansar
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(idTrabajador, "Va a descansar 6 segundos.");
+				pthread_mutex_unlock(&Fichero);
 
+				// El trabajador deja de estar disponible
+				pthread_mutex_lock(&mutexRespReparaciones);
+				listaRespReparaciones[posTrabajador].disponible = 0;
+				pthread_mutex_unlock(&mutexRespReparaciones);
+
+				// Descanso
 				sleep(6);
 
-				pthread_mutex_lock(&mutexTecnicos);
+				// El trabajador vuelve a estar disponible
+				pthread_mutex_lock(&mutexRespReparaciones);
 				listaRespReparaciones[posTrabajador].disponible = 1;
-				pthread_mutex_unlock(&mutexTecnicos);
+				pthread_mutex_unlock(&mutexRespReparaciones);
+
+				// Escribir en el log que ha dejado de descansar
+				pthread_mutex_lock(&Fichero);
+				writeLogMessage(idTrabajador, "Ha terminado su descanso.");
+				pthread_mutex_unlock(&Fichero);
+
+				// Resetear número de clientes atendidos a 0
+				pthread_mutex_lock(&mutexRespReparaciones);
+				listaRespReparaciones[posTrabajador].numClientesAtendidosHastaDescanso = 0;
+				pthread_mutex_unlock(&mutexRespReparaciones);
 			}
 		}
 
 		// Obtener posición del cliente a atender según el tipo de trabajador
-		pthread_mutex_lock(&colaClientes);
+		pthread_mutex_lock(&mutexColaClientes);
 		posCliente = obtenerPosicionProximoClienteSegunTipo(tipoTrabajador);
 		// Obtener tipo del cliente en cuestión
 		tipoCliente = listaClientes[posCliente].tipo;
 		// El cliente pasa a estar en proceso de ser atendido
 		listaClientes[posCliente].atendido = 1;
-		pthread_mutex_unlock(&colaClientes);
+		pthread_mutex_unlock(&mutexColaClientes);
 
-		// Atender al cliente
-		atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente);
+		// Bucle hasta atender a un cliente TODO NO FUNCIONA CORRECTAMENTE
+		while (atenderCliente(tipoTrabajador, posTrabajador, tipoCliente, posCliente) != 1)
+			;
 
 		// Aumentar número de clientes atendidos
 		if (tipoTrabajador == 0)
 		{
 			// Aumentar número de clientes atendidos a técnico
 			pthread_mutex_lock(&mutexTecnicos);
-			listaTecnicos[posTrabajador].numClientesAtendidos = listaTecnicos[posTrabajador].numClientesAtendidos + 1;
+			listaTecnicos[posTrabajador].numClientesAtendidosHastaDescanso = listaTecnicos[posTrabajador].numClientesAtendidosHastaDescanso + 1;
 			pthread_mutex_unlock(&mutexTecnicos);
 		}
 		else if (tipoTrabajador == 1)
 		{
 			// Aumentar número de clientes atendidos a responsable de reparaciones
-			pthread_mutex_lock(&mutexResponsables);
-			listaRespReparaciones[posTrabajador].numClientesAtendidos = listaRespReparaciones[posTrabajador].numClientesAtendidos + 1;
-			pthread_mutex_unlock(&mutexResponsables);
+			pthread_mutex_lock(&mutexRespReparaciones);
+			listaRespReparaciones[posTrabajador].numClientesAtendidosHastaDescanso = listaRespReparaciones[posTrabajador].numClientesAtendidosHastaDescanso + 1;
+			pthread_mutex_unlock(&mutexRespReparaciones);
 		}
 	} while (finalizar == 0);
 }
@@ -897,39 +960,39 @@ void accionesEncargado()
 			// Tanto técnicos como responsables de reparaciones están ocupados
 
 			// Obtener posición del primer cliente libre
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			posCliente = obtenerPosicionProximoCliente();
 			// Obtener tipo del cliente en cuestión
 			tipoCliente = listaClientes[posCliente].tipo;
 			// El cliente pasa a estar en proceso de ser atendido
 			listaClientes[posCliente].atendido = 1;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 		}
 		else if (numTecnicosDisponibles == 0)
 		{
 			// No hay técnicos disponibles, el encargado atiende al próximo cliente de su tipo
 
 			// Obtener posición de cliente de tipo APP
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			posCliente = obtenerPosicionProximoClienteSegunTipo(0);
 			// Obtener tipo del cliente en cuestión
 			tipoCliente = listaClientes[posCliente].tipo;
 			// El cliente pasa a estar en proceso de ser atendido
 			listaClientes[posCliente].atendido = 1;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 		}
 		else if (numRespReparacionesDisponibles == 0)
 		{
 			// No hay responsables de reparaciones disponibles, el encargado atiende al próximo cliente de su tipo
 
 			// Obtener posición de cliente de tipo RED
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			posCliente = obtenerPosicionProximoClienteSegunTipo(1);
 			// Obtener tipo del cliente en cuestión
 			tipoCliente = listaClientes[posCliente].tipo;
 			// El cliente pasa a estar en proceso de ser atendido
 			listaClientes[posCliente].atendido = 1;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 		}
 		else
 		{
@@ -957,11 +1020,11 @@ void accionesTecnicoDomiciliario()
 	do
 	{
 		// Comprobamos que el número de solicitudes domiciliarias. Bloqueamos si es menor que 4
-		pthread_mutex_lock(&solicitudesDomicilio);
+		pthread_mutex_lock(&mutexSolicitudesDomicilio);
 		while (numSolicitudesDomicilio < NSOLICDOMINECESARIAS)
 		{
 			// Espera a que el número de solicitudes sea 4
-			pthread_cond_wait(&condSolicitudesDomicilio, &solicitudesDomicilio);
+			pthread_cond_wait(&condSolicitudesDomicilio, &mutexSolicitudesDomicilio);
 
 			// Atiende las solicitudes pendientes cuando finaliza el programa.
 			if (finalizar == 1)
@@ -970,17 +1033,16 @@ void accionesTecnicoDomiciliario()
 				break;
 			}
 		}
-		pthread_mutex_unlock(&solicitudesDomicilio);
+		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage(id, "Comenzando atención domiciliaria.\n");
+		writeLogMessage(id, "Comenzando atención domiciliaria.");
 		pthread_mutex_unlock(&Fichero);
 
 		// Atendemos cada solicitud
 		for (i = 0; i < totalSolicitudes; i++)
 		{
 			sleep(1);
-			printf("Cliente %d\n", i);
 			sprintf(cadena1, "Atendido cliente ");
 			obtenerIDClienteAttDom(cadena2);
 			strcat(cadena1, cadena2);
@@ -991,24 +1053,24 @@ void accionesTecnicoDomiciliario()
 		}
 
 		// Reseteamos el número de solicitudes a domicilio. Se finaliza la atención domiciliaria.
-		pthread_mutex_lock(&solicitudesDomicilio);
+		pthread_mutex_lock(&mutexSolicitudesDomicilio);
 		numSolicitudesDomicilio = 0;
-		pthread_mutex_unlock(&solicitudesDomicilio);
+		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Atención domiciliaria finalizada.\n");
 		pthread_mutex_unlock(&Fichero);
 
 		// Damos aviso a los que esperaban por atención domiciliaria
-		pthread_mutex_lock(&solicitudesDomicilio);
+		pthread_mutex_lock(&mutexSolicitudesDomicilio);
 		for (i = 0; i < totalSolicitudes; i++)
 		{
-			printf("Signal %d\n", i);
 			pthread_cond_signal(&condSolicitudesDomicilio);
 		}
-		pthread_mutex_unlock(&solicitudesDomicilio);
+		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 	} while (finalizar == 0);
+
 	free(id);
 	free(cadena1);
 	free(cadena2);
@@ -1037,13 +1099,13 @@ int calculaAleatorios(int min, int max)
 
 void liberaCliente(int posicion)
 {
-	pthread_mutex_lock(&colaClientes);
+	pthread_mutex_lock(&mutexColaClientes);
 	listaClientes[posicion].id = 0;
 	listaClientes[posicion].atendido = 0;
 	listaClientes[posicion].prioridad = 0;
 	listaClientes[posicion].solicitudDomicilio = 0;
 	listaClientes[posicion].tipo = 0;
-	pthread_mutex_unlock(&colaClientes);
+	pthread_mutex_unlock(&mutexColaClientes);
 }
 
 int obtenerPosicionProximoCliente()
@@ -1150,10 +1212,10 @@ int obtenerPosicionProximoClienteSegunTipo(int tipoCliente)
 	return posProxCliente;
 }
 
-void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
+int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int posCliente)
 {
 
-	// Establecer como no disponible al trabajador segun tipo
+	// Establecer como no disponible al trabajador según tipo
 	if (tipoTrabajador == 0)
 	{
 		pthread_mutex_lock(&mutexTecnicos);
@@ -1171,6 +1233,8 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 	{
 		// No se ha encontrado un cliente al que atender, esperamos 2 segundos
 		sleep(2);
+		// No se ha atendido un cliente
+		return 0;
 	}
 	else
 	{
@@ -1197,9 +1261,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		else if (tipoTrabajador == 1)
 		{
 			// Definir id de responsable de reparaciones
-			pthread_mutex_lock(&mutexResponsables);
+			pthread_mutex_lock(&mutexRespReparaciones);
 			numID = listaRespReparaciones[posTrabajador].id;
-			pthread_mutex_unlock(&mutexResponsables);
+			pthread_mutex_unlock(&mutexRespReparaciones);
 			sprintf(idTrabajador, "resprep_%d", numID);
 		}
 
@@ -1240,9 +1304,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 			pthread_mutex_unlock(&Fichero);
 
 			// Marcar cliente como atendido
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			listaClientes[posCliente].atendido = 2;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 		}
 		else if (tipoAtencion == 2)
 		{
@@ -1258,9 +1322,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 			pthread_mutex_unlock(&Fichero);
 
 			// Marcar cliente como confundido
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			listaClientes[posCliente].atendido = 3;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 		}
 		else
 		{
@@ -1275,9 +1339,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 			writeLogMessage(idTrabajador, "Ha terminado de atender a un cliente.");
 			pthread_mutex_unlock(&Fichero);
 
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			listaClientes[posCliente].atendido = 2;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 		}
 		free(idTrabajador);
 		free(idCliente);
@@ -1297,6 +1361,9 @@ void atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int 
 		listaRespReparaciones[posTrabajador].disponible = 1;
 		pthread_mutex_unlock(&mutexTecnicos);
 	}
+
+	// Se ha atendido a un cliente
+	return 1;
 }
 
 void obtenerIDClienteAttDom(char *cadena)
@@ -1310,9 +1377,9 @@ void obtenerIDClienteAttDom(char *cadena)
 		{
 
 			sprintf(cadena, "clired_%d", listaClientes[i].id);
-			pthread_mutex_lock(&colaClientes);
+			pthread_mutex_lock(&mutexColaClientes);
 			listaClientes[i].solicitudDomicilio = 0;
-			pthread_mutex_unlock(&colaClientes);
+			pthread_mutex_unlock(&mutexColaClientes);
 			break;
 		}
 		else
@@ -1345,7 +1412,7 @@ int obtenerNumRespReparacionesDisponibles()
 {
 	int rdisponibles = 0;
 
-	pthread_mutex_lock(&mutexResponsables);
+	pthread_mutex_lock(&mutexRespReparaciones);
 
 	for (int i = 0; i < NRESPREPARACIONES; i++)
 	{
@@ -1355,7 +1422,7 @@ int obtenerNumRespReparacionesDisponibles()
 		}
 	}
 
-	pthread_mutex_unlock(&mutexResponsables);
+	pthread_mutex_unlock(&mutexRespReparaciones);
 
 	return rdisponibles;
 }
