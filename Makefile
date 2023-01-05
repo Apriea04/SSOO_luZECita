@@ -12,3 +12,5 @@ stress:
 	sh signals.sh 3
 kill:
 	sh signals.sh 0
+arguments:
+	sh argumentos.sh
