@@ -16,7 +16,6 @@ int nsolicdominecesarias = 4; // Número de solicitudes domciliarias necesarias 
 
 /**DECLARACIONES GLOBALES*/
 
-// TODO imprimir en log descansos de trabajadores y id + 1 en salida controlada
 // TODO la salida controlada a veces falla
 
 // Mutex
@@ -226,13 +225,21 @@ void handlerVacio(int sig) {}
  */
 void handlerTerminar(int s)
 {
+	// Provoca la salida controlada de los trabajadores (atendiendo a clientes restantes)
 	finalizar = 1;
 
+	// Escribir en el log que se va a hacer una salida controlada
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage("sistema", "Iniciando salida controlada.");
+	pthread_mutex_unlock(&Fichero);
+
+	// Enviar señal al técnico domiciliario para atender a los clientes restantes
 	printf("Enviando señal\n");
 	pthread_mutex_lock(&mutexSolicitudesDomicilio);
 	pthread_cond_signal(&condSolicitudesDomicilio);
 	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
+	// Bloquear señales
 	sig.sa_handler = handlerVacio;
 	if (sigaction(SIGUSR1, &sig, NULL) == -1)
 	{
@@ -584,6 +591,11 @@ int main(int argc, char *argv[])
 	}
 	printf("Finalizado el programa de gestión con éxito\n");
 
+	// Escribir en el log que se ha terminado la salida ordenada con éxito
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage("sistema", "Salida controlada finalizada con éxito.");
+	pthread_mutex_unlock(&Fichero);
+
 	// Liberar listas
 	free(listaTecnicos);
 	free(listaRespReparaciones);
@@ -660,7 +672,7 @@ void accionesCliente(int posCliente)
 	id = malloc(sizeof(char) * 30);
 	msg = malloc(sizeof(char) * 100);
 
-	pthread_mutex_lock(&mutexColaClientes); // TODO duda ¿Proteger?
+	pthread_mutex_lock(&mutexColaClientes);
 	int tipo = listaClientes[posCliente].tipo;
 	pthread_mutex_unlock(&mutexColaClientes);
 
@@ -771,23 +783,23 @@ void accionesCliente(int posCliente)
 				}
 			} while (sol >= nsolicdominecesarias);
 
-			// Si está el técnico de viaje, esperamos a que finalice el mismo
-			pthread_mutex_lock(&mutexViaje);
 			// Ya podemos esperar a ser atendidos
 			pthread_mutex_lock(&Fichero);
 			writeLogMessage(id, "Espera a ser atendido en domicilio");
 			pthread_mutex_unlock(&Fichero);
-			pthread_mutex_unlock(&mutexViaje);
 
+			// Si está el técnico de viaje, esperamos a que finalice el mismo
+			pthread_mutex_lock(&mutexViaje);
 			pthread_mutex_lock(&mutexColaClientes);
 			listaClientes[posCliente].solicitudDomicilio = 1;
 			pthread_mutex_unlock(&mutexColaClientes);
+			pthread_mutex_unlock(&mutexViaje);
 
 			pthread_mutex_lock(&mutexSolicitudesDomicilio);
 			numSolicitudesDomicilio += 1;
 			if (numSolicitudesDomicilio == nsolicdominecesarias)
 			{
-				// Damos el aviso:
+				// Damos el aviso al técnico de atención domiciliaria
 				pthread_cond_signal(&condSolicitudesDomicilio);
 			}
 
@@ -1055,23 +1067,32 @@ void accionesTecnicoDomiciliario()
 		pthread_mutex_lock(&mutexSolicitudesDomicilio);
 		while (numSolicitudesDomicilio < nsolicdominecesarias)
 		{
-			// Espera a que el número de solicitudes sea 4
-			pthread_cond_wait(&condSolicitudesDomicilio, &mutexSolicitudesDomicilio);
-
+			// Espera a que el número de solicitudes sea 4 solo si no se debe terminar ya el programa
+			if (finalizar == 0)
+			{
+				pthread_cond_wait(&condSolicitudesDomicilio, &mutexSolicitudesDomicilio);
+			}
 			// Atiende las solicitudes pendientes cuando finaliza el programa.
-			if (finalizar == 1)
+			else if (finalizar == 1)
 			{
 				totalSolicitudes = numSolicitudesDomicilio;
-				// break;
+				break;
 			}
 		}
 		pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
-		pthread_mutex_lock(&mutexViaje);
+		// Si no hay solicitudes, salimos del bucle (salida controlada)
+		if (numSolicitudesDomicilio == 0)
+		{
+			break;
+		}
+
+		// El técnico pasa a estar de viaje, no se atenderán más solicitudes hasta que vuelve
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage(id, "Empieza la atención domiciliaria");
 		pthread_mutex_unlock(&Fichero);
 
+		pthread_mutex_lock(&mutexViaje);
 		// Atendemos cada solicitud
 		for (i = 0; i < totalSolicitudes; i++)
 		{
