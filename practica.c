@@ -196,6 +196,106 @@ int obtenerNumRespReparacionesDisponibles();
  */
 void printWelcome();
 
+/**CÓDIGOS DE EJECUCIÓN DE HILOS*/
+
+/**
+ * Código ejecutado por los hilos de técnicos.
+ *
+ * @param arg puntero del ID del técnico.
+ * @return void*
+ */
+void *Tecnico(void *arg)
+{
+	char *id;
+	id = malloc(sizeof(char) * 30);
+
+	int index = *(int *)arg;
+	accionesTecnico(0, index);
+	sprintf(id, "tecnico_%d", index + 1);
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage(id, "Termina su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Técnico %d ha finalizado su trabajo.\n", index + 1);
+	free(id);
+	free(arg);
+}
+
+/**
+ * Código ejecutado por los hilos de responsables de reparaciones.
+ *
+ * @param arg puntero del ID del responsable de reparaciones.
+ * @return void*
+ */
+void *Responsable(void *arg)
+{
+	char *id;
+	id = malloc(sizeof(char) * 30);
+
+	int index = *(int *)arg;
+	accionesTecnico(1, index);
+	sprintf(id, "resprep_%d", index + 1);
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage(id, "Termina su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Responsable de reparaciones %d ha finalizado su trabajo.\n", index + 1);
+	free(id);
+	free(arg);
+}
+
+/**
+ * Código ejecutado por el hilo de encargado.
+ *
+ * @param arg puntero del ID del encargado.
+ * @return void
+ */
+void *Encargado(void *arg)
+{
+	int index = *(int *)arg;
+	accionesEncargado();
+	char *id;
+	id = malloc(sizeof(char) * 30);
+
+	sprintf(id, "encargado_%d", index);
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage(id, "Termina su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Encargado %d ha finalizado su trabajo.\n", index);
+	free(id);
+	free(arg);
+}
+
+/**
+ * Código ejecutado por el técnico de atención domiciliaria.
+ * @param arg puntero del ID del técnico de atención domiciliaria.
+ * @return void*
+ */
+void *AtencionDomiciliaria(void *arg)
+{
+	char *id;
+	id = malloc(sizeof(char) * 30);
+
+	int index = *(int *)arg;
+	accionesTecnicoDomiciliario();
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage("tecnico_dom", "Termina su trabajo");
+	pthread_mutex_unlock(&Fichero);
+	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo.\n", index + 1);
+	free(id);
+	free(arg);
+}
+
+/**
+ * Código ejecutado por los clientes entrantes al sistema.
+ * @param arg puntero del ID del cliente.
+ * @return void*
+ */
+void *Cliente(void *arg)
+{
+	int index = *(int *)arg;
+	accionesCliente(index);
+	free(arg);
+}
+
 /**MANEJADORAS DE SEÑAL*/
 
 /**
@@ -271,7 +371,6 @@ void handlerAmpliaClientes(int s)
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
 
-
 	printf("¿Cuántos clientes quieres añadir?: ");
 	scanf("%d", &clientesExtra);
 
@@ -299,42 +398,15 @@ void handlerAmpliaClientes(int s)
 }
 
 /**
- * Forma parte de los codigos que ejecutan los hilos
- * NO PERTENECE A ESTA SECCIÓN.
- *
- * Código ejecutado por los hilos de técnicos.
- *
- * @param arg puntero del ID del técnico.
- * @return void*
- */
-void *Tecnico(void *arg)
-{
-	char *id;
-	id = malloc(sizeof(char) * 30);
-
-	int index = *(int *)arg;
-	accionesTecnico(0, index);
-	sprintf(id, "tecnico_%d", index + 1);
-	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Termina su trabajo");
-	pthread_mutex_unlock(&Fichero);
-	printf("Técnico %d ha finalizado su trabajo.\n", index + 1);
-	free(id);
-	free(arg);
-	// pthread_exit(NULL);
-}
-
-
-/**
  * Código de la función manejadora que amplía el total de clientes que puede aceptar el sistema
-*/
+ */
 void handlerAmpliaTecnicos(int s)
 {
 	int tecnicosExtra;
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
 
-	printf("¿Cuántos clientes quieres añadir?: ");
+	printf("¿Cuántos técnicos quieres añadir?: ");
 	scanf("%d", &tecnicosExtra);
 
 	pthread_mutex_lock(&mutexTecnicos);
@@ -342,7 +414,7 @@ void handlerAmpliaTecnicos(int s)
 	listaTecnicos = realloc(listaTecnicos, sizeof(struct Trabajador) * numTecnicos);
 	hilosTecnicos = realloc(hilosTecnicos, sizeof(pthread_t) * numTecnicos);
 
-	// Creamos un nuevo hilo de técnicos tras aumentar su el tamaño de la lista
+	// Creamos un nuevo hilo de técnicos tras aumentar el tamaño de la lista
 	for (int i = numTecnicos - tecnicosExtra; i < numTecnicos; i++)
 	{
 		int *index = malloc(sizeof(int));
@@ -353,99 +425,18 @@ void handlerAmpliaTecnicos(int s)
 		}
 
 		listaTecnicos[i].disponible = 1; // El técnico empieza ya disponible
-		listaTecnicos[i].id = i+1;
+		listaTecnicos[i].id = i + 1;
 		listaTecnicos[i].numClientesAtendidosHastaDescanso = 0;
 	}
 	pthread_mutex_unlock(&mutexTecnicos);
 
-	sprintf(msg, "%d técnicos listos para trabajar", tecnicosExtra);
+	sprintf(msg, "%d técnicos a mayores listos para trabajar", tecnicosExtra);
 
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage("SISTEMA", msg);
 	pthread_mutex_unlock(&Fichero);
 
 	free(msg);
-}
-
-/**CÓDIGOS DE EJECUCIÓN DE HILOS*/
-
-/**
- * Código ejecutado por los hilos de responsables de reparaciones.
- *
- * @param arg puntero del ID del responsable de reparaciones.
- * @return void*
- */
-void *Responsable(void *arg)
-{
-	char *id;
-	id = malloc(sizeof(char) * 30);
-
-	int index = *(int *)arg;
-	accionesTecnico(1, index);
-	sprintf(id, "resprep_%d", index + 1);
-	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Termina su trabajo");
-	pthread_mutex_unlock(&Fichero);
-	printf("Responsable de reparaciones %d ha finalizado su trabajo.\n", index + 1);
-	free(id);
-	free(arg);
-	// pthread_exit(NULL);
-}
-
-/**
- * Código ejecutado por el hilo de encargado.
- *
- * @param arg puntero del ID del encargado.
- * @return void
- */
-void *Encargado(void *arg)
-{
-	int index = *(int *)arg;
-	accionesEncargado();
-	char *id;
-	id = malloc(sizeof(char) * 30);
-
-	sprintf(id, "encargado_%d", index);
-	pthread_mutex_lock(&Fichero);
-	writeLogMessage(id, "Termina su trabajo");
-	pthread_mutex_unlock(&Fichero);
-	printf("Encargado %d ha finalizado su trabajo.\n", index);
-	free(id);
-	free(arg);
-	// pthread_exit(NULL);
-}
-
-/**
- * Código ejecutado por el técnico de atención domiciliaria.
- * @param arg puntero del ID del técnico de atención domiciliaria.
- * @return void*
- */
-void *AtencionDomiciliaria(void *arg)
-{
-	char *id;
-	id = malloc(sizeof(char) * 30);
-
-	int index = *(int *)arg;
-	accionesTecnicoDomiciliario();
-	pthread_mutex_lock(&Fichero);
-	writeLogMessage("tecnico_dom", "Termina su trabajo");
-	pthread_mutex_unlock(&Fichero);
-	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo.\n", index + 1);
-	free(id);
-	free(arg);
-	// pthread_exit(NULL);
-}
-
-/**
- * Código ejecutado por los clientes entrantes al sistema.
- * @param arg puntero del ID del cliente.
- * @return void*
- */
-void *Cliente(void *arg)
-{
-	int index = *(int *)arg;
-	accionesCliente(index);
-	free(arg);
 }
 
 /**MAIN*/
@@ -707,7 +698,6 @@ int main(int argc, char *argv[])
 
 	// Se ordenó finalizar.
 	int quedanClientes = -1;
-
 	while (quedanClientes != 0)
 	{
 		i = 0;
@@ -730,7 +720,7 @@ int main(int argc, char *argv[])
 	finalizar = 1;
 
 	// Enviar señal al técnico domiciliario para atender a los clientes restantes
-	printf("Enviando señal\n");
+	printf("Enviando señal al técnico domiciliario para atender últimos clientes\n");
 	pthread_mutex_lock(&mutexSolicitudesDomicilio);
 	pthread_cond_signal(&condSolicitudesDomicilio);
 	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
