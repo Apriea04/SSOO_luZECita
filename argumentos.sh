@@ -48,7 +48,7 @@ do
             echo "Número máximo de técnicos"
             read tecnicos
             
-            if [[ $clientes =~ $es_numero ]] || [[ $tecnicos =~ $es_numero ]]
+            if [[ $clientes =~ $es_numero ]] && [[ $tecnicos =~ $es_numero ]]
             then
                 ./practica --clientes $clientes --tecnicos $tecnicos
                 exit 0
