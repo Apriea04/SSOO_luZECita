@@ -35,18 +35,18 @@ struct sigaction sig;
 // Struct que define a un cliente
 struct Cliente
 {
-	int id;					// Número secuencial comenzando en 1 para su tipo de cliente
-	int atendido;			// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
-	int tipo;				// 0 si APP; 1 si RED
-	int prioridad;			// Del 1 al 10 aleatoria. 10 es la prioridad más alta
+	int id;									// Número secuencial comenzando en 1 para su tipo de cliente
+	int atendido;						// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
+	int tipo;								// 0 si APP; 1 si RED
+	int prioridad;					// Del 1 al 10 aleatoria. 10 es la prioridad más alta
 	int solicitudDomicilio; // 0 si no solicita atención domiciliaria o ya se le atendió domiciliariamente; 1 si sí la solicita
 };
 
 // Struct que define a un trabajador
 struct Trabajador
 {
-	int id;								   // Número secuencial comenzando en 1 para cada trabajador
-	int disponible;						   // 0 si no está disponible; 1 si está disponible
+	int id;																 // Número secuencial comenzando en 1 para cada trabajador
+	int disponible;												 // 0 si no está disponible; 1 si está disponible
 	int numClientesAtendidosHastaDescanso; // Número clientes atendidos por el trabajador
 };
 
@@ -482,6 +482,8 @@ int main(int argc, char *argv[])
 	// Recibir parámetros del programa
 	if (argc >= 3 && atoi(argv[2]) > 0)
 	{
+		// Primer cambio
+
 		// Comprobar si el primer argumento indica si son clientes o técnicos
 		if (strcmp(argv[1], "--clientes") == 0)
 		{
@@ -500,14 +502,16 @@ int main(int argc, char *argv[])
 			sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
 		}
 
-		// Escribir log con el cambio simple (argc = 3)
+		// Escribir log con el primer cambio
 		pthread_mutex_lock(&Fichero);
 		writeLogMessage("Sistema", msg);
 		pthread_mutex_unlock(&Fichero);
 
-		// Comprobar si el cambio es completo (argc = 5)
+		// Comprobar si hay un segundo cambio
 		if (argc == 5 && atoi(argv[4]) > 0)
 		{
+			// Segundo cambio
+
 			// Comprobar si el tercer argumento indica si son clientes o técnicos
 			if (strcmp(argv[3], "--clientes") == 0)
 			{
@@ -526,37 +530,10 @@ int main(int argc, char *argv[])
 				sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
 			}
 
-			// Escribir log con el cambio simple (argc = 3)
+			// Escribir log con el segundo cambio
 			pthread_mutex_lock(&Fichero);
 			writeLogMessage("Sistema", msg);
 			pthread_mutex_unlock(&Fichero);
-
-			// Comprobar si el cambio es completo (argc = 5)
-			if (argc == 5 && atoi(argv[4]) > 0)
-			{
-				// Comprobar si el tercer argumento indica si son clientes o técnicos
-				if (strcmp(argv[3], "--clientes") == 0)
-				{
-					// Modificar número de clientes
-					numClientes = atoi(argv[4]);
-
-					// Cambiar mensaje del log
-					sprintf(msg, "Se ha cambiado el número máximo de clientes a %d.", numClientes);
-				}
-				else if (strcmp(argv[3], "--tecnicos") == 0)
-				{
-					// Modificar número de técnicos
-					numTecnicos = atoi(argv[4]);
-
-					// Cambiar mensaje del log
-					sprintf(msg, "Se ha cambiado el número máximo de técnicos a %d.", numTecnicos);
-				}
-
-				// Escribir log con el segundo cambio
-				pthread_mutex_lock(&Fichero);
-				writeLogMessage("Sistema", msg);
-				pthread_mutex_unlock(&Fichero);
-			}
 		}
 	}
 	// Inicialización de hilos
