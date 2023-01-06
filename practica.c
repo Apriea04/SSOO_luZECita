@@ -504,7 +504,7 @@ int main(int argc, char *argv[])
 
 		// Escribir log con el primer cambio
 		pthread_mutex_lock(&Fichero);
-		writeLogMessage("Sistema", msg);
+		writeLogMessage("SISTEMA", msg);
 		pthread_mutex_unlock(&Fichero);
 
 		// Comprobar si hay un segundo cambio
@@ -532,7 +532,7 @@ int main(int argc, char *argv[])
 
 			// Escribir log con el segundo cambio
 			pthread_mutex_lock(&Fichero);
-			writeLogMessage("Sistema", msg);
+			writeLogMessage("SISTEMA", msg);
 			pthread_mutex_unlock(&Fichero);
 		}
 	}
