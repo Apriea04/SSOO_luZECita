@@ -279,13 +279,23 @@ void handlerAmpliaClientes(int s)
 	pthread_mutex_unlock(&mutexColaClientes);
 
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage("SISTEMA", "Se ha añadido una nueva posición en la cola de clientes.");
+	writeLogMessage("SISTEMA", "Amplia la lista de clientes en una posición");
 	pthread_mutex_unlock(&Fichero);
 }
 
 void handlerAmpliaTecnicos(int s)
 {
-	// TODO implementar este handler (SIGALRM)
+	pthread_mutex_lock(&mutexTecnicos);
+	numTecnicos += 1;
+	listaTecnicos = realloc(listaTecnicos, sizeof(struct Trabajador) * numTecnicos);
+	listaTecnicos[numTecnicos - 1].disponible = 1; // El técnico empieza ya disponible
+	listaTecnicos[numTecnicos - 1].id = numTecnicos;
+	listaTecnicos[numTecnicos - 1].numClientesAtendidosHastaDescanso = 0;
+	pthread_mutex_unlock(&mutexTecnicos);
+
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage("SISTEMA", "Añade nuevo técnico listo para trabajar");
+	pthread_mutex_unlock(&Fichero);
 }
 
 /**CÓDIGOS DE EJECUCIÓN DE HILOS*/
@@ -425,6 +435,13 @@ int main(int argc, char *argv[])
 
 	sig.sa_handler = handlerAmpliaClientes;
 	if (sigaction(SIGPIPE, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = handlerAmpliaTecnicos;
+	if (sigaction(SIGALRM, &sig, NULL) == -1)
 	{
 		perror("[ERROR] Error en la llamada a sigaction.");
 		exit(-1);
