@@ -13,4 +13,5 @@ stress:
 kill:
 	sh signals.sh 0
 args:
+        compile
 	sh argumentos.sh
