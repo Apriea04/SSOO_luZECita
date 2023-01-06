@@ -35,18 +35,18 @@ struct sigaction sig;
 // Struct que define a un cliente
 struct Cliente
 {
-	int id;									// Número secuencial comenzando en 1 para su tipo de cliente
-	int atendido;						// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
-	int tipo;								// 0 si APP; 1 si RED
-	int prioridad;					// Del 1 al 10 aleatoria. 10 es la prioridad más alta
+	int id;					// Número secuencial comenzando en 1 para su tipo de cliente
+	int atendido;			// 0 si no atendido; 1 si está en proceso; 2 si ya está atendido; 3 si se confunde o está mal identificado
+	int tipo;				// 0 si APP; 1 si RED
+	int prioridad;			// Del 1 al 10 aleatoria. 10 es la prioridad más alta
 	int solicitudDomicilio; // 0 si no solicita atención domiciliaria o ya se le atendió domiciliariamente; 1 si sí la solicita
 };
 
 // Struct que define a un trabajador
 struct Trabajador
 {
-	int id;																 // Número secuencial comenzando en 1 para cada trabajador
-	int disponible;												 // 0 si no está disponible; 1 si está disponible
+	int id;								   // Número secuencial comenzando en 1 para cada trabajador
+	int disponible;						   // 0 si no está disponible; 1 si está disponible
 	int numClientesAtendidosHastaDescanso; // Número clientes atendidos por el trabajador
 };
 
@@ -283,24 +283,10 @@ void handlerAmpliaClientes(int s)
 	pthread_mutex_unlock(&Fichero);
 }
 
-void handlerAmpliaTecnicos(int s)
-{
-	pthread_mutex_lock(&mutexTecnicos);
-	numTecnicos += 1;
-	listaTecnicos = realloc(listaTecnicos, sizeof(struct Trabajador) * numTecnicos);
-	listaTecnicos[numTecnicos - 1].disponible = 1; // El técnico empieza ya disponible
-	listaTecnicos[numTecnicos - 1].id = numTecnicos;
-	listaTecnicos[numTecnicos - 1].numClientesAtendidosHastaDescanso = 0;
-	pthread_mutex_unlock(&mutexTecnicos);
-
-	pthread_mutex_lock(&Fichero);
-	writeLogMessage("SISTEMA", "Añade nuevo técnico listo para trabajar");
-	pthread_mutex_unlock(&Fichero);
-}
-
-/**CÓDIGOS DE EJECUCIÓN DE HILOS*/
-
 /**
+ * Forma parte de los codigos que ejecutan los hilos
+ * NO PERTENECE A ESTA SECCIÓN.
+ *
  * Código ejecutado por los hilos de técnicos.
  *
  * @param arg puntero del ID del técnico.
@@ -322,6 +308,33 @@ void *Tecnico(void *arg)
 	free(arg);
 	// pthread_exit(NULL);
 }
+
+void handlerAmpliaTecnicos(int s)
+{
+	pthread_mutex_lock(&mutexTecnicos);
+	numTecnicos += 1;
+	listaTecnicos = realloc(listaTecnicos, sizeof(struct Trabajador) * numTecnicos);
+	hilosTecnicos = realloc(hilosTecnicos, sizeof(pthread_t) * numTecnicos);
+
+	// Creamos un nuevo hilo de técnicos tras aumentar su el tamaño de la lista
+	int *index = malloc(sizeof(int));
+	*index = numTecnicos - 1;
+	if (pthread_create(&hilosTecnicos[numTecnicos], NULL, &Tecnico, index) != 0)
+	{
+		perror("[ERROR] Error al crear hilo de técnico.");
+	}
+
+	listaTecnicos[numTecnicos - 1].disponible = 1; // El técnico empieza ya disponible
+	listaTecnicos[numTecnicos - 1].id = numTecnicos;
+	listaTecnicos[numTecnicos - 1].numClientesAtendidosHastaDescanso = 0;
+	pthread_mutex_unlock(&mutexTecnicos);
+
+	pthread_mutex_lock(&Fichero);
+	writeLogMessage("SISTEMA", "Añade nuevo técnico listo para trabajar");
+	pthread_mutex_unlock(&Fichero);
+}
+
+/**CÓDIGOS DE EJECUCIÓN DE HILOS*/
 
 /**
  * Código ejecutado por los hilos de responsables de reparaciones.
