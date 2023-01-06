@@ -267,20 +267,35 @@ void handlerTerminar(int s)
  */
 void handlerAmpliaClientes(int s)
 {
+	int clientesExtra;
+	char *msg;
+	msg = malloc(sizeof(char) * 50);
+
+
+	printf("¿Cuántos clientes quieres añadir?: ");
+	scanf("%d", &clientesExtra);
+
 	// Vamos a modificar la cola de clientes. Zona peligrosa (crítica)
 	pthread_mutex_lock(&mutexColaClientes);
-	numClientes += 1;
+	numClientes += clientesExtra;
 	listaClientes = realloc(listaClientes, sizeof(struct Cliente) * numClientes);
-	listaClientes[numClientes - 1].id = contadorApp;
-	listaClientes[numClientes - 1].atendido = 0;
-	listaClientes[numClientes - 1].prioridad = calculaAleatorios(1, 10);
-	listaClientes[numClientes - 1].solicitudDomicilio = 0;
-	listaClientes[numClientes - 1].tipo = 0;
+	for (int i = numClientes - clientesExtra; i < numClientes - 1; i++)
+	{
+		listaClientes[i].id = 0;
+		listaClientes[i].atendido = 0;
+		listaClientes[i].prioridad = 0;
+		listaClientes[i].solicitudDomicilio = 0;
+		listaClientes[i].tipo = 0;
+	}
 	pthread_mutex_unlock(&mutexColaClientes);
 
+	sprintf(msg, "Lista de clientes ampliada %d posiciones", clientesExtra);
+
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage("SISTEMA", "Amplia la lista de clientes en una posición");
+	writeLogMessage("SISTEMA", msg);
 	pthread_mutex_unlock(&Fichero);
+
+	free(msg);
 }
 
 /**
@@ -309,29 +324,47 @@ void *Tecnico(void *arg)
 	// pthread_exit(NULL);
 }
 
+
+/**
+ * Código de la función manejadora que amplía el total de clientes que puede aceptar el sistema
+*/
 void handlerAmpliaTecnicos(int s)
 {
+	int tecnicosExtra;
+	char *msg;
+	msg = malloc(sizeof(char) * 50);
+
+	printf("¿Cuántos clientes quieres añadir?: ");
+	scanf("%d", &tecnicosExtra);
+
 	pthread_mutex_lock(&mutexTecnicos);
-	numTecnicos += 1;
+	numTecnicos += tecnicosExtra;
 	listaTecnicos = realloc(listaTecnicos, sizeof(struct Trabajador) * numTecnicos);
 	hilosTecnicos = realloc(hilosTecnicos, sizeof(pthread_t) * numTecnicos);
 
 	// Creamos un nuevo hilo de técnicos tras aumentar su el tamaño de la lista
-	int *index = malloc(sizeof(int));
-	*index = numTecnicos - 1;
-	if (pthread_create(&hilosTecnicos[numTecnicos], NULL, &Tecnico, index) != 0)
+	for (int i = numTecnicos - tecnicosExtra; i < numTecnicos; i++)
 	{
-		perror("[ERROR] Error al crear hilo de técnico.");
-	}
+		int *index = malloc(sizeof(int));
+		*index = i;
+		if (pthread_create(&hilosTecnicos[i], NULL, &Tecnico, index) != 0)
+		{
+			perror("[ERROR] Error al crear hilo de técnico.");
+		}
 
-	listaTecnicos[numTecnicos - 1].disponible = 1; // El técnico empieza ya disponible
-	listaTecnicos[numTecnicos - 1].id = numTecnicos;
-	listaTecnicos[numTecnicos - 1].numClientesAtendidosHastaDescanso = 0;
+		listaTecnicos[i].disponible = 1; // El técnico empieza ya disponible
+		listaTecnicos[i].id = i+1;
+		listaTecnicos[i].numClientesAtendidosHastaDescanso = 0;
+	}
 	pthread_mutex_unlock(&mutexTecnicos);
 
+	sprintf(msg, "%d técnicos listos para trabajar", tecnicosExtra);
+
 	pthread_mutex_lock(&Fichero);
-	writeLogMessage("SISTEMA", "Añade nuevo técnico listo para trabajar");
+	writeLogMessage("SISTEMA", msg);
 	pthread_mutex_unlock(&Fichero);
+
+	free(msg);
 }
 
 /**CÓDIGOS DE EJECUCIÓN DE HILOS*/
