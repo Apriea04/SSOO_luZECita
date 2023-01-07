@@ -192,6 +192,16 @@ int obtenerNumTecnicosDisponibles();
 int obtenerNumRespReparacionesDisponibles();
 
 /**
+ * Activa la recepción de señales en el programa.
+ */
+void activarSenales();
+
+/**
+ * Bloquea la recepción de señales en el programa.
+ */
+void desactivarSenales();
+
+/**
  * Imprime el mensaje de bienvenida a la aplicación.
  */
 void printWelcome();
@@ -334,34 +344,8 @@ void handlerTerminar(int s)
 	writeLogMessage("SISTEMA", "Iniciando salida controlada.");
 	pthread_mutex_unlock(&Fichero);
 
-	// Bloquear señales
-	sig.sa_handler = handlerVacio;
-	if (sigaction(SIGUSR1, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
-
-	sig.sa_handler = handlerVacio;
-	if (sigaction(SIGUSR2, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
-
-	sig.sa_handler = handlerVacio;
-	if (sigaction(SIGINT, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
-
-	sig.sa_handler = handlerVacio;
-	if (sigaction(SIGPIPE, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
+	// Bloquear recepción de señales en el programa
+	desactivarSenales();
 }
 
 /**
@@ -373,7 +357,10 @@ void handlerAmpliaClientes(int s)
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
 
-	printf("[SISTEMA] ¿Cuántos clientes quieres añadir?:\n");
+	// Desactivar temporalmente la recepción de señales
+	desactivarSenales();
+
+	printf("[SISTEMA] ¿Cuántos clientes quieres añadir al tope?:\n");
 	scanf("%d", &clientesExtra);
 
 	// Vamos a modificar la cola de clientes. Zona peligrosa (crítica)
@@ -389,6 +376,9 @@ void handlerAmpliaClientes(int s)
 		listaClientes[i].tipo = 0;
 	}
 	pthread_mutex_unlock(&mutexColaClientes);
+
+	// Reactivar recepción de señales
+	activarSenales();
 
 	printf("[SISTEMA] Lista de clientes ampliada %d posiciones.\n", clientesExtra);
 
@@ -409,6 +399,9 @@ void handlerAmpliaTecnicos(int s)
 	int tecnicosExtra;
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
+
+	// Desactivar temporalmente la recepción de señales
+	desactivarSenales();
 
 	printf("[SISTEMA] ¿Cuántos técnicos quieres añadir?:\n");
 	scanf("%d", &tecnicosExtra);
@@ -434,6 +427,9 @@ void handlerAmpliaTecnicos(int s)
 	}
 	pthread_mutex_unlock(&mutexTecnicos);
 
+	// Reactivar recepción de señales
+	activarSenales();
+
 	printf("[SISTEMA] %d técnicos a mayores listos para trabajar.\n", tecnicosExtra);
 
 	// Escribir en el log la ampliación
@@ -452,43 +448,10 @@ int main(int argc, char *argv[])
 	ordenarAcabar = 0; // Sirve para que cuando no queden clientes por atender y se haya recibido SIGINT se acabe con los trabajadores
 	finalizar = 0;
 	printWelcome();
-
-	// Definir manejadoras para señales
 	int i;
-	sig.sa_handler = handlerClienteApp;
-	if (sigaction(SIGUSR1, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
 
-	sig.sa_handler = handlerClienteRed;
-	if (sigaction(SIGUSR2, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
-
-	sig.sa_handler = handlerTerminar;
-	if (sigaction(SIGINT, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
-
-	sig.sa_handler = handlerAmpliaClientes;
-	if (sigaction(SIGPIPE, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
-
-	sig.sa_handler = handlerAmpliaTecnicos;
-	if (sigaction(SIGALRM, &sig, NULL) == -1)
-	{
-		perror("[ERROR] Error en la llamada a sigaction.");
-		exit(-1);
-	}
+	// Activar recepción de señales en el programa
+	activarSenales();
 
 	/**INICIALIZAR RECURSOS*/
 
@@ -1663,6 +1626,82 @@ int obtenerNumRespReparacionesDisponibles()
 	pthread_mutex_unlock(&mutexRespReparaciones);
 
 	return rdisponibles;
+}
+
+void activarSenales()
+{
+	sig.sa_handler = handlerClienteApp;
+	if (sigaction(SIGUSR1, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = handlerClienteRed;
+	if (sigaction(SIGUSR2, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = handlerTerminar;
+	if (sigaction(SIGINT, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = handlerAmpliaClientes;
+	if (sigaction(SIGPIPE, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = handlerAmpliaTecnicos;
+	if (sigaction(SIGALRM, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+}
+
+void desactivarSenales()
+{
+	sig.sa_handler = SIG_IGN;
+	if (sigaction(SIGUSR1, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = SIG_IGN;
+	if (sigaction(SIGUSR2, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = SIG_IGN;
+	if (sigaction(SIGINT, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = SIG_IGN;
+	if (sigaction(SIGPIPE, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
+
+	sig.sa_handler = SIG_IGN;
+	if (sigaction(SIGALRM, &sig, NULL) == -1)
+	{
+		perror("[ERROR] Error en la llamada a sigaction.");
+		exit(-1);
+	}
 }
 
 void printWelcome()
