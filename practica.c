@@ -326,8 +326,6 @@ void handlerClienteRed(int sig)
 	nuevoCliente(1);
 }
 
-void handlerVacio(int sig) {}
-
 /**
  * Manejadora de señal que finaliza de manera ordenada el programa. Responde a la señal SIGINT.
  * @param s
