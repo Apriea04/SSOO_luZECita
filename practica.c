@@ -827,12 +827,8 @@ void nuevoCliente(int tipoCliente)
 
 			// Creamos un hilo cliente y lo inicializamos
 			pthread_t cliente;
-			char *id;
 
-			id = malloc(sizeof(char) * 30); // Identificador único de cada cliente
-			*id = i;
-
-			if (pthread_create(&cliente, NULL, &Cliente, id) != 0)
+			if (pthread_create(&cliente, NULL, &Cliente, &i) != 0)
 			{
 				perror("[ERROR] Error al introducir un nuevo cliente");
 			}
