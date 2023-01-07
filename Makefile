@@ -5,17 +5,17 @@ compile:
 	gcc practica.c -o practica -lpthread
 
 sigusr1:
-	sh signals.sh 1
+	bash signals.sh 1
 sigusr2:
-	sh signals.sh 2
+	bash signals.sh 2
 sigpipe:
-	sh signals.sh 4
+	bash signals.sh 4
 sigalarm:
-	sh signals.sh 5
+	bash signals.sh 5
 stress:
-	sh signals.sh 3
+	bash signals.sh 3
 kill:
-	sh signals.sh 0
+	bash signals.sh 0
 args:
 	make compile
-	sh argumentos.sh
+	bash argumentos.sh
