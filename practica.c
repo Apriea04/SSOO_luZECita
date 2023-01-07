@@ -332,9 +332,6 @@ void handlerClienteRed(int sig)
  */
 void handlerTerminar(int s)
 {
-	// Provoca la salida controlada de los trabajadores (atendiendo a clientes restantes)
-	ordenarAcabar = 1;
-
 	printf("[SISTEMA] Iniciando salida controlada.\n");
 
 	// Escribir en el log que se va a hacer una salida controlada
@@ -344,6 +341,9 @@ void handlerTerminar(int s)
 
 	// Bloquear recepción de señales en el programa
 	desactivarSenales();
+
+	// Provoca la salida controlada de los trabajadores (atendiendo a clientes restantes)
+	ordenarAcabar = 1;
 }
 
 /**
@@ -637,29 +637,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// TODO comprobar si es necesario dentro del WHILE
 	while (ordenarAcabar == 0)
 	{
-		sig.sa_handler = handlerClienteApp;
-		if (sigaction(SIGUSR1, &sig, NULL) == -1)
-		{
-			perror("[ERROR] Error en la llamada a sigaction.");
-			exit(-1);
-		}
-
-		sig.sa_handler = handlerClienteRed;
-		if (sigaction(SIGUSR2, &sig, NULL) == -1)
-		{
-			perror("[ERROR] Error en la llamada a sigaction.");
-			exit(-1);
-		}
-
-		sig.sa_handler = handlerTerminar;
-		if (sigaction(SIGINT, &sig, NULL) == -1)
-		{
-			perror("[ERROR] Error en la llamada a sigaction.");
-			exit(-1);
-		}
 		pause();
 	}
 

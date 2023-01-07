@@ -18,8 +18,9 @@ case $1 in
         for i in {1..3000}
         do
             ps axf | grep "./practica" | grep -v grep | awk '{print "kill -10 " $1}' |sh
+            sleep 0.01
             ps axf | grep "./practica" | grep -v grep | awk '{print "kill -12 " $1}' |sh
-            sleep 0.05
+            sleep 0.01
         done
     ;;
     4)
