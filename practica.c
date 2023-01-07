@@ -215,7 +215,7 @@ void *Tecnico(void *arg)
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Termina su trabajo");
 	pthread_mutex_unlock(&Fichero);
-	printf("Técnico %d ha finalizado su trabajo.\n", index + 1);
+	printf("[SISTEMA] Técnico %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
 }
@@ -237,7 +237,7 @@ void *Responsable(void *arg)
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Termina su trabajo");
 	pthread_mutex_unlock(&Fichero);
-	printf("Responsable de reparaciones %d ha finalizado su trabajo.\n", index + 1);
+	printf("[SISTEMA] Responsable de reparaciones %d ha finalizado su trabajo.\n", index + 1);
 	free(id);
 	free(arg);
 }
@@ -259,7 +259,7 @@ void *Encargado(void *arg)
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage(id, "Termina su trabajo");
 	pthread_mutex_unlock(&Fichero);
-	printf("Encargado %d ha finalizado su trabajo.\n", index);
+	printf("[SISTEMA] Encargado %d ha finalizado su trabajo.\n", index);
 	free(id);
 	free(arg);
 }
@@ -279,7 +279,7 @@ void *AtencionDomiciliaria(void *arg)
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage("tecnico_dom", "Termina su trabajo");
 	pthread_mutex_unlock(&Fichero);
-	printf("Técnico de atención domiciliaria %d ha finalizado su trabajo.\n", index + 1);
+	printf("[SISTEMA] Técnico de atención domiciliaria %d ha finalizado su trabajo.\n", index);
 	free(id);
 	free(arg);
 }
@@ -327,6 +327,8 @@ void handlerTerminar(int s)
 	// Provoca la salida controlada de los trabajadores (atendiendo a clientes restantes)
 	ordenarAcabar = 1;
 
+	printf("[SISTEMA] Iniciando salida controlada.\n");
+
 	// Escribir en el log que se va a hacer una salida controlada
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage("SISTEMA", "Iniciando salida controlada.");
@@ -371,7 +373,7 @@ void handlerAmpliaClientes(int s)
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
 
-	printf("¿Cuántos clientes quieres añadir?: ");
+	printf("[SISTEMA] ¿Cuántos clientes quieres añadir?:\n");
 	scanf("%d", &clientesExtra);
 
 	// Vamos a modificar la cola de clientes. Zona peligrosa (crítica)
@@ -388,8 +390,10 @@ void handlerAmpliaClientes(int s)
 	}
 	pthread_mutex_unlock(&mutexColaClientes);
 
-	sprintf(msg, "Lista de clientes ampliada %d posiciones", clientesExtra);
+	printf("[SISTEMA] Lista de clientes ampliada %d posiciones.\n", clientesExtra);
 
+	// Escribir en el log la ampliación
+	sprintf(msg, "[SISTEMA] Lista de clientes ampliada %d posiciones", clientesExtra);
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage("SISTEMA", msg);
 	pthread_mutex_unlock(&Fichero);
@@ -406,7 +410,7 @@ void handlerAmpliaTecnicos(int s)
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
 
-	printf("¿Cuántos técnicos quieres añadir?: ");
+	printf("[SISTEMA] ¿Cuántos técnicos quieres añadir?:\n");
 	scanf("%d", &tecnicosExtra);
 
 	pthread_mutex_lock(&mutexTecnicos);
@@ -430,8 +434,10 @@ void handlerAmpliaTecnicos(int s)
 	}
 	pthread_mutex_unlock(&mutexTecnicos);
 
-	sprintf(msg, "%d técnicos a mayores listos para trabajar", tecnicosExtra);
+	printf("[SISTEMA] %d técnicos a mayores listos para trabajar.\n", tecnicosExtra);
 
+	// Escribir en el log la ampliación
+	sprintf(msg, "%d técnicos a mayores listos para trabajar", tecnicosExtra);
 	pthread_mutex_lock(&Fichero);
 	writeLogMessage("SISTEMA", msg);
 	pthread_mutex_unlock(&Fichero);
@@ -720,7 +726,7 @@ int main(int argc, char *argv[])
 	finalizar = 1;
 
 	// Enviar señal al técnico domiciliario para atender a los clientes restantes
-	printf("Enviando señal al técnico domiciliario para atender últimos clientes\n");
+	printf("[SISTEMA] Enviando señal al técnico domiciliario para atender últimos clientes\n");
 	pthread_mutex_lock(&mutexSolicitudesDomicilio);
 	pthread_cond_signal(&condSolicitudesDomicilio);
 	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
@@ -762,7 +768,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	printf("Finalizado el programa de gestión con éxito\n");
+	printf("[SISTEMA] Salida controlada finalizada con éxito.\n");
 
 	// Escribir en el log que se ha terminado la salida ordenada con éxito
 	pthread_mutex_lock(&Fichero);
@@ -824,12 +830,15 @@ void nuevoCliente(int tipoCliente)
 			char *id;
 
 			id = malloc(sizeof(char) * 30); // Identificador único de cada cliente
+			*id = i;
 
-			if (pthread_create(&cliente, NULL, &Cliente, &i) != 0)
+			if (pthread_create(&cliente, NULL, &Cliente, id) != 0)
 			{
 				perror("[ERROR] Error al introducir un nuevo cliente");
 			}
-			free(id);
+
+			printf("[SISTEMA] Añadido cliente en posición %d\n", i);
+
 			break; // El bucle termina cuando encuentra una posición libre
 		}
 		i++;
