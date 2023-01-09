@@ -1,3 +1,5 @@
 practica
 *.out
 .vscode/
+*.log
+registroTiempos.log
