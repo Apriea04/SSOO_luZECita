@@ -665,6 +665,7 @@ int main(int argc, char *argv[])
 		}
 		pthread_mutex_unlock(&mutexColaClientes);
 
+		//Esperamos a que el personal acabe de atender
 		sleep(2);
 	}
 
@@ -672,9 +673,7 @@ int main(int argc, char *argv[])
 
 	// Enviar señal al técnico domiciliario para atender a los clientes restantes
 	printf("[SISTEMA] Enviando señal al técnico domiciliario para atender últimos clientes\n");
-	pthread_mutex_lock(&mutexSolicitudesDomicilio);
 	pthread_cond_signal(&condSolicitudesDomicilio);
-	pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
 	// Esperar a que todos los hilos terminen sus funciones antes de acabar el programa
 	for (i = 0; i < numTecnicos; i++)
