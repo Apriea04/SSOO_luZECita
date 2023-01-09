@@ -1689,7 +1689,8 @@ void desactivarSenales()
 void printWelcome()
 {
 	printf("=====================================================================\n");
-	printf("|======BIENVENIDO AL SISTEMA DE GESTIÓN DE AVERÍAS luZECita=========|\n");
+	printf("|      BIENVENIDO AL SISTEMA DE GESTIÓN DE AVERÍAS luZECita         |\n");
+	printf("|===================================================================|\n");
 	printf("|     Grupo 1:                                                      |\n");
 	printf("|       Mario López Barazón (mlopeb04)                              |\n");
 	printf("|       Guillermo Martínez Martínez (gmartm08)                      |\n");
@@ -1697,5 +1698,6 @@ void printWelcome()
 	printf("|       Álvaro Prieto Álvarez (apriea04)                            |\n");
 	printf("|===================================================================|\n");
 	printf("| Para utilizar el programa, siga las instrucciones de README.md    |\n");
+	printf("| Consulte el fichero registroTiempos.log para ver más detalles     |\n");
 	printf("=====================================================================\n");
 }
