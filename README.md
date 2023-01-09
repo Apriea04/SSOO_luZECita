@@ -20,6 +20,7 @@ Para enviar señales al programa existen dos opciones:
 * `kill -12 $pidPractica` para enviar un cliente de tipo RED.
 * `kill -13 $pidPractica` para ampliar el número de clientes que soporta la aplicación durante la ejecución.
 * `kill -14 $pidPractica` para ampliar el número de técnicos durante la ejecución.
+* Para obtener el valor de `$pidPractica`, escribir `ps -ef` y buscar el PID del proceso llamado `./practica`.
 ### Mediante Makefile
 Esta opción detecta automáticamente el pid del programa.
 * `make sigusr1` para enviar un cliente de tipo APP.

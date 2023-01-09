@@ -7,15 +7,24 @@
 #include <signal.h>
 #include <string.h>
 
+#define NUMRESPREPARACIONES 2  // Número de responsables de reparaciones
+#define NUMENCARGADOS 1		   // Número de encargados
+#define NUMTECDOMICILIARIO 1   // Número de técnicos de atención domiciliaria
+#define NUMSOLDOMINECESARIAS 4 // Número de solicitudes hasta que el técnico domiciliario atienda a los clientes
+
+/**
+ * @author mlopeb04
+ * @author gmartm08
+ * @author dmarts05
+ * @author apriea04
+ *
+ */
+
 /**DECLARACIONES GLOBALES*/
 
 // Cantidad de trabajadores y clientes
 int numClientes;
 int numTecnicos;
-int numRespReparaciones;
-int numEncargados;
-int numTecDomiciliario;
-int numSolDomiNecesarias; // Número de solicitudes hasta que el técnico domiciliario atienda a los clientes
 
 // Mutex
 pthread_mutex_t Fichero, mutexColaClientes, mutexTecnicos, mutexRespReparaciones, mutexSolicitudesDomicilio, mutexViaje;
@@ -453,19 +462,15 @@ int main(int argc, char *argv[])
 
 	/**INICIALIZAR RECURSOS*/
 
-	// Inicialización de cantidades por defecto de trabajadores y clientes
+	// Inicialización de cantidades por defecto de técnicos y clientes
 	numClientes = 20;
 	numTecnicos = 2;
-	numRespReparaciones = 2;
-	numEncargados = 1;
-	numTecDomiciliario = 1;
-	numSolDomiNecesarias = 4;
 
 	// Inicialización de hilos
 	hilosTecnicos = malloc((sizeof(pthread_t)) * numTecnicos);
-	hilosRespReparaciones = malloc((sizeof(pthread_t) * numRespReparaciones));
-	hilosEncargados = malloc((sizeof(pthread_t) * numEncargados));
-	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * numTecDomiciliario));
+	hilosRespReparaciones = malloc((sizeof(pthread_t) * NUMRESPREPARACIONES));
+	hilosEncargados = malloc((sizeof(pthread_t) * NUMENCARGADOS));
+	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * NUMTECDOMICILIARIO));
 
 	// Inicialización de mutex
 	pthread_mutex_init(&Fichero, NULL);
@@ -542,9 +547,9 @@ int main(int argc, char *argv[])
 	}
 	// Inicialización de hilos
 	hilosTecnicos = malloc((sizeof(pthread_t)) * numTecnicos);
-	hilosRespReparaciones = malloc((sizeof(pthread_t) * numRespReparaciones));
-	hilosEncargados = malloc((sizeof(pthread_t) * numEncargados));
-	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * numTecDomiciliario));
+	hilosRespReparaciones = malloc((sizeof(pthread_t) * NUMRESPREPARACIONES));
+	hilosEncargados = malloc((sizeof(pthread_t) * NUMENCARGADOS));
+	hilosTecDomiciliarios = malloc((sizeof(pthread_t) * NUMTECDOMICILIARIO));
 
 	// Inicialización de variables condición
 	pthread_cond_init(&condSolicitudesDomicilio, NULL);
@@ -590,8 +595,8 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de lista de reponsables de reparaciones.
-	listaRespReparaciones = (struct Trabajador *)malloc(numRespReparaciones * sizeof(struct Trabajador));
-	for (i = 0; i < numRespReparaciones; i++)
+	listaRespReparaciones = (struct Trabajador *)malloc(NUMRESPREPARACIONES * sizeof(struct Trabajador));
+	for (i = 0; i < NUMRESPREPARACIONES; i++)
 	{
 		listaRespReparaciones[i].id = 0;
 		listaRespReparaciones[i].disponible = 1;
@@ -599,7 +604,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de responsables de reparaciones.
-	for (i = 0; i < numRespReparaciones; i++)
+	for (i = 0; i < NUMRESPREPARACIONES; i++)
 	{
 		// Agregar a lista de responsables de reparaciones.
 		listaRespReparaciones[i].id = i + 1;
@@ -614,7 +619,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de encargados.
-	for (i = 0; i < numEncargados; i++)
+	for (i = 0; i < NUMENCARGADOS; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -626,7 +631,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Inicialización de técnicos de atención domiciliaria.
-	for (i = 0; i < numTecDomiciliario; i++)
+	for (i = 0; i < NUMTECDOMICILIARIO; i++)
 	{
 		int *index = malloc(sizeof(int));
 		*index = i + 1;
@@ -681,7 +686,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (i = 0; i < numRespReparaciones; i++)
+	for (i = 0; i < NUMRESPREPARACIONES; i++)
 	{
 		if (pthread_join(hilosRespReparaciones[i], NULL) != 0)
 		{
@@ -690,7 +695,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (i = 0; i < numEncargados; i++)
+	for (i = 0; i < NUMENCARGADOS; i++)
 	{
 		if (pthread_join(hilosEncargados[i], NULL) != 0)
 		{
@@ -699,7 +704,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	for (i = 0; i < numTecDomiciliario; i++)
+	for (i = 0; i < NUMTECDOMICILIARIO; i++)
 	{
 		if (pthread_join(hilosTecDomiciliarios[i], NULL) != 0)
 		{
@@ -895,11 +900,11 @@ void accionesCliente(int posCliente)
 				sol = numSolicitudesDomicilio;
 				pthread_mutex_unlock(&mutexSolicitudesDomicilio);
 
-				if (sol > numSolDomiNecesarias)
+				if (sol > NUMSOLDOMINECESARIAS)
 				{
 					sleep(3);
 				}
-			} while (sol >= numSolDomiNecesarias);
+			} while (sol >= NUMSOLDOMINECESARIAS);
 
 			// Ya podemos esperar a ser atendidos
 			pthread_mutex_lock(&Fichero);
@@ -915,7 +920,7 @@ void accionesCliente(int posCliente)
 
 			pthread_mutex_lock(&mutexSolicitudesDomicilio);
 			numSolicitudesDomicilio += 1;
-			if (numSolicitudesDomicilio == numSolDomiNecesarias)
+			if (numSolicitudesDomicilio == NUMSOLDOMINECESARIAS)
 			{
 				// Damos el aviso al técnico de atención domiciliaria
 				pthread_cond_signal(&condSolicitudesDomicilio);
@@ -1172,7 +1177,7 @@ void accionesTecnicoDomiciliario()
 	char *id, *cadena1, *cadena2;
 	int i;
 	int posicionCliente;
-	int totalSolicitudes = numSolDomiNecesarias;
+	int totalSolicitudes = NUMSOLDOMINECESARIAS;
 
 	id = malloc(sizeof(char) * 30);
 	cadena1 = malloc(sizeof(char) * 50);
@@ -1183,7 +1188,7 @@ void accionesTecnicoDomiciliario()
 	{
 		// Comprobamos que el número de solicitudes domiciliarias. Bloqueamos si es menor que 4
 		pthread_mutex_lock(&mutexSolicitudesDomicilio);
-		while (numSolicitudesDomicilio < numSolDomiNecesarias)
+		while (numSolicitudesDomicilio < NUMSOLDOMINECESARIAS)
 		{
 			// Espera a que el número de solicitudes sea 4 solo si no se debe terminar ya el programa
 			if (finalizar == 0)
@@ -1592,7 +1597,7 @@ int obtenerNumRespReparacionesDisponibles()
 
 	pthread_mutex_lock(&mutexRespReparaciones);
 
-	for (int i = 0; i < numRespReparaciones; i++)
+	for (int i = 0; i < NUMRESPREPARACIONES; i++)
 	{
 		if (listaRespReparaciones[i].disponible == 1)
 		{
@@ -1684,6 +1689,13 @@ void desactivarSenales()
 void printWelcome()
 {
 	printf("=====================================================================\n");
-	printf("=======BIENVENIDO AL SISTEMA DE GESTIÓN DE AVERÍAS luZECita==========\n");
+	printf("|======BIENVENIDO AL SISTEMA DE GESTIÓN DE AVERÍAS luZECita=========|\n");
+	printf("|     Grupo 1:                                                      |\n");
+	printf("|       Mario López Barazón (mlopeb04)                              |\n");
+	printf("|       Guillermo Martínez Martínez (gmartm08)                      |\n");
+	printf("|       Daniel Martínez Sánchez (dmarts05)                          |\n");
+	printf("|       Álvaro Prieto Álvarez (apriea04)                            |\n");
+	printf("|===================================================================|\n");
+	printf("| Para utilizar el programa, siga las instrucciones de README.md    |\n");
 	printf("=====================================================================\n");
 }
