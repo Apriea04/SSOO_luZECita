@@ -665,7 +665,7 @@ int main(int argc, char *argv[])
 		}
 		pthread_mutex_unlock(&mutexColaClientes);
 
-		//Esperamos a que el personal acabe de atender
+		// Esperamos a que el personal acabe de atender
 		sleep(2);
 	}
 
@@ -777,7 +777,7 @@ void nuevoCliente(int tipoCliente)
 				perror("[ERROR] Error al introducir un nuevo cliente");
 			}
 
-			printf("[SISTEMA] Añadido cliente en posición %d\n", i);
+			printf("[SISTEMA] Añadido cliente en posición %d\n", i + 1);
 
 			break; // El bucle termina cuando encuentra una posición libre
 		}
