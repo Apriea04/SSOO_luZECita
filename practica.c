@@ -361,14 +361,50 @@ void handlerTerminar(int s)
 void handlerAmpliaClientes(int s)
 {
 	int clientesExtra;
+	char *clientesExtraStr;
+	clientesExtraStr = malloc(sizeof(char) * 15);
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
+
+	int entradaValida = 0;
 
 	// Desactivar temporalmente la recepción de señales
 	desactivarSenales();
 
-	printf("[SISTEMA] ¿Cuántos clientes quieres añadir al tope?:\n");
-	scanf("%d", &clientesExtra);
+	// Pedir número de clientes
+	while (entradaValida == 0)
+	{
+		printf("[SISTEMA] ¿Cuántos clientes quieres añadir al tope?:\n");
+		fgets(clientesExtraStr, 15, stdin);
+
+		// Comprobar si entrada contiene letras
+		if (sscanf(clientesExtraStr, "%d", &clientesExtra) == 1)
+		{
+			// Entrada no tiene letras
+			clientesExtra = atoi(clientesExtraStr);
+
+			// Comprobar si entrada tiene un número mayor que 0
+			if (clientesExtra > 0)
+			{
+				// Se cumplen todos los checks
+				entradaValida = 1;
+			}
+		}
+
+		if (entradaValida == 0)
+		{
+			printf("[SISTEMA] Entrada inválida.\n");
+		}
+	}
+
+	free(clientesExtraStr);
+
+	// Entrada no válida, salimos del método
+	if (entradaValida == 0)
+	{
+		printf("[SISTEMA] Entrada inválida.\n");
+		return;
+	}
 
 	// Vamos a modificar la cola de clientes. Zona peligrosa (crítica)
 	pthread_mutex_lock(&mutexColaClientes);
@@ -405,14 +441,43 @@ void handlerAmpliaClientes(int s)
 void handlerAmpliaTecnicos(int s)
 {
 	int tecnicosExtra;
+	char *tecnicosExtraStr;
+	tecnicosExtraStr = malloc(sizeof(char) * 15);
 	char *msg;
 	msg = malloc(sizeof(char) * 50);
+
+	int entradaValida = 0;
 
 	// Desactivar temporalmente la recepción de señales
 	desactivarSenales();
 
-	printf("[SISTEMA] ¿Cuántos técnicos quieres añadir?:\n");
-	scanf("%d", &tecnicosExtra);
+	// Pedir número de técnicos
+	while (entradaValida == 0)
+	{
+		printf("[SISTEMA] ¿Cuántos técnicos quieres añadir?:\n");
+		fgets(tecnicosExtraStr, 15, stdin);
+
+		// Comprobar si entrada contiene letras
+		if (sscanf(tecnicosExtraStr, "%d", &tecnicosExtra) == 1)
+		{
+			// Entrada no tiene letras
+			tecnicosExtra = atoi(tecnicosExtraStr);
+
+			// Comprobar si entrada tiene un número mayor que 0
+			if (tecnicosExtra > 0)
+			{
+				// Se cumplen todos los checks
+				entradaValida = 1;
+			}
+		}
+
+		if (entradaValida == 0)
+		{
+			printf("[SISTEMA] Entrada inválida.\n");
+		}
+	}
+
+	free(tecnicosExtraStr);
 
 	pthread_mutex_lock(&mutexTecnicos);
 	numTecnicos += tecnicosExtra;
