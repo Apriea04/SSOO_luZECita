@@ -1469,9 +1469,9 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 	}
 	else if (tipoTrabajador == 1)
 	{
-		pthread_mutex_lock(&mutexTecnicos);
+		pthread_mutex_lock(&mutexRespReparaciones);
 		listaRespReparaciones[posTrabajador].disponible = 0;
-		pthread_mutex_unlock(&mutexTecnicos);
+		pthread_mutex_unlock(&mutexRespReparaciones);
 	}
 
 	if (posCliente == -1)
@@ -1527,8 +1527,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 		}
 
 		// Indicamos que comienza el proceso de atención en el log
-		pthread_mutex_lock(&Fichero);
 		sprintf(msg, "Comienza a atender a %s", idCliente);
+		pthread_mutex_lock(&Fichero);
 		writeLogMessage(idTrabajador, msg);
 		pthread_mutex_unlock(&Fichero);
 
@@ -1543,8 +1543,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 			sleep(calculaAleatorios(2, 6));
 
 			// Indicamos que finaliza la atención y el motivo en el log
-			pthread_mutex_lock(&Fichero);
 			sprintf(msg, "Termina de atender a %s. Está mal identificado", idCliente);
+			pthread_mutex_lock(&Fichero);
 			writeLogMessage(idTrabajador, msg);
 			pthread_mutex_unlock(&Fichero);
 
@@ -1561,8 +1561,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 			sleep(calculaAleatorios(1, 2));
 
 			// Indicamos que finaliza la atención y el motivo en el log
-			pthread_mutex_lock(&Fichero);
 			sprintf(msg, "Termina de atender a %s. Está confundido de compañía", idCliente);
+			pthread_mutex_lock(&Fichero);
 			writeLogMessage(idTrabajador, msg);
 			pthread_mutex_unlock(&Fichero);
 
@@ -1579,8 +1579,8 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 			sleep(calculaAleatorios(1, 4));
 
 			// Indicamos que finaliza la atención y el motivo en el log
-			pthread_mutex_lock(&Fichero);
 			sprintf(msg, "Termina de atender a %s. Tiene todo en regla", idCliente);
+			pthread_mutex_lock(&Fichero);
 			writeLogMessage(idTrabajador, msg);
 			pthread_mutex_unlock(&Fichero);
 
@@ -1602,9 +1602,9 @@ int atenderCliente(int tipoTrabajador, int posTrabajador, int tipoCliente, int p
 	}
 	else if (tipoTrabajador == 1)
 	{
-		pthread_mutex_lock(&mutexTecnicos);
+		pthread_mutex_lock(&mutexRespReparaciones);
 		listaRespReparaciones[posTrabajador].disponible = 1;
-		pthread_mutex_unlock(&mutexTecnicos);
+		pthread_mutex_unlock(&mutexRespReparaciones);
 	}
 
 	// Se ha atendido a un cliente
