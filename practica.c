@@ -1287,10 +1287,7 @@ void accionesTecnicoDomiciliario()
 			sleep(1);
 			sprintf(cadena1, "Termina de atender al cliente ");
 
-			// Por si justo se cambiara el número máximo de clientes en la cola, dentro de mutex
-			// pthread_mutex_lock(&mutexColaClientes);
 			atenderClienteAttDom(cadena2);
-			// pthread_mutex_unlock(&mutexColaClientes);
 
 			strcat(cadena1, cadena2);
 
@@ -1624,8 +1621,8 @@ void atenderClienteAttDom(char *cadena)
 		if (listaClientes[i].solicitudDomicilio == 1)
 		{
 
-			sprintf(cadena, "clired_%d", listaClientes[i].id);
 			pthread_mutex_lock(&mutexColaClientes);
+			sprintf(cadena, "clired_%d", listaClientes[i].id);
 			listaClientes[i].solicitudDomicilio = 0;
 			pthread_mutex_unlock(&mutexColaClientes);
 			break;
