@@ -374,7 +374,8 @@ void handlerAmpliaClientes(int s)
 	pthread_mutex_lock(&mutexColaClientes);
 	numClientes += clientesExtra;
 	listaClientes = realloc(listaClientes, sizeof(struct Cliente) * numClientes);
-	for (int i = numClientes - clientesExtra; i < numClientes - 1; i++)
+	// 20; 20 < 40
+	for (int i = numClientes - clientesExtra; i < numClientes; i++)
 	{
 		listaClientes[i].id = 0;
 		listaClientes[i].atendido = 0;
